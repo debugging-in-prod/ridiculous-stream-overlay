@@ -2,7 +2,7 @@
 
 [ext_resource type="Theme" uid="uid://d1rxorbgvgyer" path="res://ui/ridiculous_stream_main.theme" id="1_1q0ot"]
 [ext_resource type="Script" uid="uid://brw4mp8qnlxxh" path="res://RSMain.gd" id="1_y2jdm"]
-[ext_resource type="Script" uid="uid://copo7pkldfbov" path="res://classes/RSMousePass.cs" id="2_4s2fq"]
+[ext_resource type="Script" path="res://classes/RSMousePass.gd" id="2_4s2fq"]
 [ext_resource type="Script" uid="uid://doxabl7ha832k" path="res://classes/RSMouseTracker.gd" id="2_xjlao"]
 [ext_resource type="PackedScene" uid="uid://gxr8ww6jok8i" path="res://instances/physics_scene.tscn" id="3_d3yde"]
 [ext_resource type="PackedScene" uid="uid://che3syvs71fq3" path="res://instances/debug_view.tscn" id="5_j4imi"]
