@@ -101,7 +101,7 @@ func get_all_control_nodes(node_to_search: Node, found: Array[Control] = []) -> 
 
 func start_everything() -> void:
 	await Engine.get_main_loop().process_frame
-	get_window().always_on_top = true
+	get_window().always_on_top = display.supports_desktop_overlay()
 	
 	display.start()
 

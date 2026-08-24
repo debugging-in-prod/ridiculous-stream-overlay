@@ -5,10 +5,47 @@ static var _log: TwitchLogger = TwitchLogger.new(&"RSDisplay")
 
 var is_maximized := false
 
+
+## Whether this platform can present the app as a click-through, always-on-top
+## desktop overlay.
+##
+## Godot's Wayland backend implements none of the three primitives that mode
+## needs: window_set_mouse_passthrough is a TODO stub, window_set_position is
+## documented "Unsupported with toplevels", and WINDOW_FLAG_ALWAYS_ON_TOP is
+## absent from window_set_flag's switch. Worse, get_flag()/position read back
+## the values you set regardless, so the failure is completely silent.
+##
+## Where this returns false the app runs as an ordinary window instead, sized
+## to the design resolution so an OBS window capture gets a predictable source.
+static func supports_desktop_overlay() -> bool:
+	return DisplayServer.get_name() != "Wayland"
+
+
 func start() -> void:
 	get_window().mode = Window.MODE_WINDOWED
-	set_borderless_maximized(true)
+	if supports_desktop_overlay():
+		set_borderless_maximized(true)
+	else:
+		set_capture_window()
 	set_app_scale(RS.settings.app_scale)
+
+
+## Capture-mode presentation: a normal, decorated window at the project's
+## design resolution, for OBS to window-capture and composite over the game.
+func set_capture_window() -> void:
+	var current_window := get_window()
+	var design_size := Vector2i(
+		ProjectSettings.get_setting("display/window/size/viewport_width"),
+		ProjectSettings.get_setting("display/window/size/viewport_height"),
+	)
+	is_maximized = false
+	current_window.borderless = false
+	current_window.size = design_size
+
+	_log.i("[RSDisplay] %s cannot host a desktop overlay; running as a %s capture window" % [
+		DisplayServer.get_name(),
+		design_size,
+	])
 
 
 func set_borderless_maximized(value: bool):
