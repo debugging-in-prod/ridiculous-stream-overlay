@@ -82,12 +82,25 @@ func _on_event_received(event: NoOBSMessage) -> void:
 			"Mic/Aux": is_mic_muted = data.event_data.input_muted
 			"Brave": is_brave_muted = data.event_data.input_muted
 
+## OBS omits responseData entirely when a request fails -- an unknown source,
+## scene or filter name, for instance. Every getter below used to dereference it
+## unconditionally, which turned a routine "no such source" into a script error
+## mid-poll. Returns null on failure and names the request that failed.
+func _response_data(response: Dictionary, request_type: String) -> Variant:
+	if response.has("response_data"):
+		return response.response_data
+	var status: Dictionary = response.get("request_status", {})
+	_log.w("%s failed: %s" % [request_type, status.get("comment", "no response_data in reply")])
+	return null
+
+
 func get_stream_status() -> bool:
 	var request_type = "GetStreamStatus"
 	var request := make_generic_request(request_type)
 	await request.response_received
 	var response = request.message.get_data()
-	return response.response_data.output_active as bool
+	var data = _response_data(response, request_type)
+	return false if data == null else data.output_active as bool
 
 func get_scene_item_id(scene_name : String, source_name: String) -> int:
 	var request_type = "GetSceneItemId"
@@ -95,7 +108,8 @@ func get_scene_item_id(scene_name : String, source_name: String) -> int:
 	var request := make_generic_request(request_type, request_data)
 	await request.response_received
 	var response = request.message.get_data()
-	return response.response_data.scene_item_id as int
+	var data = _response_data(response, request_type)
+	return -1 if data == null else data.scene_item_id as int
 
 
 func get_item_enabled(scene_name: String, item_id: int) -> bool:
@@ -104,7 +118,8 @@ func get_item_enabled(scene_name: String, item_id: int) -> bool:
 	var request = make_generic_request(request_type, request_data)
 	await request.response_received
 	var response = request.message.get_data()
-	return response.response_data.scene_item_enabled
+	var data = _response_data(response, request_type)
+	return false if data == null else data.scene_item_enabled
 
 
 func set_item_enabled(scene_name: String, item_id: int, val: bool) -> void:
@@ -119,7 +134,8 @@ func get_input_mute(input_name: String) -> bool:
 	var request = make_generic_request(request_type, request_data)
 	await request.response_received
 	var response = request.message.get_data()
-	return response.response_data.input_muted
+	var data = _response_data(response, request_type)
+	return false if data == null else data.input_muted
 
 
 func set_input_mute(input_name: String, val: bool) -> void:
@@ -137,7 +153,8 @@ func get_item_filter_enabled(source_name: String, filter_name: String) -> bool:
 	var request = make_generic_request(request_type, request_data)
 	await request.response_received
 	var response = request.message.get_data()
-	return response.response_data.filter_enabled
+	var data = _response_data(response, request_type)
+	return false if data == null else data.filter_enabled
 
 
 func set_item_filter_enabled(source_name: String, filter_name: String, filter_enabled: bool) -> void:
@@ -159,7 +176,8 @@ func get_item_filter_setting(source_name: String, filter_name: String) -> Dictio
 	var request = make_generic_request(request_type, request_data)
 	await request.response_received
 	var response = request.message.get_data()
-	return response.response_data.filter_settings
+	var data = _response_data(response, request_type)
+	return {} if data == null else data.filter_settings
 
 
 func set_item_filter_setting(source_name: String, filter_name: String, filter_settings: Dictionary) -> void:
