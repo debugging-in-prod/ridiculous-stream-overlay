@@ -82,7 +82,24 @@ func _collect_ui_rects() -> Array[Rect2i]:
 		var ctr := node as Control
 		if ctr == null or not ctr.is_visible_in_tree():
 			continue
-		var rect := xform * ctr.get_global_rect()
+
+		var rect := ctr.get_global_rect()
+
+		# RSMain deliberately puts %split_chat in the UI group even though it is a
+		# full-screen container, because only its drag grabber is interactive.
+		# Taking its whole rect would claim the entire screen as input region and
+		# nothing would pass through. Mirrors RSMouseTracker.is_m_pos_in_control_nodes.
+		if ctr is HSplitContainer:
+			if ctr.get_child_count() != 2:
+				continue
+			var ctr_left := ctr.get_child(0) as Control
+			var ctr_right := ctr.get_child(1) as Control
+			if ctr_left == null or ctr_right == null or not ctr_left.visible or not ctr_right.visible:
+				continue
+			rect.position.x = ctr_left.size.x
+			rect.size.x -= ctr_left.size.x + ctr_right.size.x
+
+		rect = xform * rect
 		if rect.size.x <= 0.0 or rect.size.y <= 0.0:
 			continue
 		rects.append(Rect2i(rect.abs()))

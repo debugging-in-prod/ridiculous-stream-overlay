@@ -18,7 +18,19 @@ var is_maximized := false
 ## Where this returns false the app runs as an ordinary window instead, sized
 ## to the design resolution so an OBS window capture gets a predictable source.
 static func supports_desktop_overlay() -> bool:
-	return DisplayServer.get_name() != "Wayland"
+	if DisplayServer.get_name() != "Wayland":
+		return true
+
+	# Stock Godot 4.6 stubs mouse passthrough, window positioning and
+	# always-on-top on Wayland, so the overlay presentation is impossible there.
+	# An engine built with the wlr-layer-shell patch (PR #109875) implements all
+	# three, and advertises itself with this feature constant -- which does not
+	# exist on a stock build, hence the ClassDB probe rather than a direct
+	# reference.
+	if not ClassDB.class_has_integer_constant(&"DisplayServer", &"FEATURE_WAYLAND_LAYER_SHELL"):
+		return false
+	var feature := ClassDB.class_get_integer_constant(&"DisplayServer", &"FEATURE_WAYLAND_LAYER_SHELL")
+	return DisplayServer.has_feature(feature)
 
 
 func start() -> void:
@@ -28,6 +40,23 @@ func start() -> void:
 	else:
 		set_capture_window()
 	set_app_scale(RS.settings.app_scale)
+
+	var w := get_window()
+	_log.i("[RSDisplay] geometry: window.size=%s  viewport=%s  content_scale_factor=%s  stretch_scale=%s  screen_xform=%s" % [
+		w.size,
+		get_viewport().get_visible_rect(),
+		get_tree().root.content_scale_factor,
+		ProjectSettings.get_setting("display/window/stretch/scale"),
+		get_viewport().get_screen_transform(),
+	])
+	_log.i("[RSDisplay] floating menu rect=%s" % [RS.btn_floating_menu.get_global_rect()])
+	_log.i("[RSDisplay] transparency: window FLAG_TRANSPARENT=%s  root.transparent_bg=%s  project.allowed=%s  project.transparent=%s  renderer=%s" % [
+		w.get_flag(Window.FLAG_TRANSPARENT),
+		get_tree().root.transparent_bg,
+		ProjectSettings.get_setting("display/window/per_pixel_transparency/allowed"),
+		ProjectSettings.get_setting("display/window/size/transparent"),
+		ProjectSettings.get_setting("rendering/renderer/rendering_method"),
+	])
 
 
 ## Capture-mode presentation: a normal, decorated window at the project's
