@@ -50,6 +50,8 @@ func start():
 
 
 func connect_to_twitch():
+	apply_credentials()
+	apply_chat_identity()
 	apply_broadcaster_id(RS.settings.broadcaster_id)
 	_log.i("Connecting...")
 	is_connected_to_twitch = await service.setup()
@@ -58,6 +60,59 @@ func connect_to_twitch():
 		_log.i("Connected to Twitch!")
 	else:
 		_log.e("Not Connected to Twitch!")
+
+
+## rs_main.tscn ships the original author's Twitch application credentials baked
+## into the OAuthSetting subresource. That client_secret is encrypted with a key
+## CryptoKeyProvider generates randomly per install, so it cannot be decrypted on
+## any other machine: the token exchange sends an empty secret, Twitch rejects
+## it, and no token is ever written to user://auth.conf.
+##
+## The failure is silent in a way worth knowing about -- auth.authorize() still
+## returns true, "Connected to Twitch!" is still logged, and the only symptom is
+## that every EventSub subscription is unauthenticated, so Twitch closes the
+## socket with 4003 (connection unused) and the client reconnects in a loop.
+##
+## Take the credentials from RSSettings instead. They live in the user data
+## directory rather than the committed scene, so they are not published, and
+## set_client_secret() encrypts with the local key on the way in.
+func apply_credentials() -> void:
+	if RS.settings.client_id.is_empty():
+		return
+
+	var setting: OAuthSetting = auth.oauth_setting
+	if setting == null:
+		_log.e("TwitchAuth has no OAuthSetting; cannot apply credentials")
+		return
+
+	setting.client_id = RS.settings.client_id
+	if not RS.settings.client_secret.is_empty():
+		setting.set_client_secret(RS.settings.client_secret)
+	_log.i("Using Twitch application %s" % setting.client_id)
+
+
+## rs_main.tscn ships iRadDev's TwitchUser baked into TwitchChat as both
+## broadcaster_user and sender_user. A fresh install therefore subscribes to his
+## chat, and -- worse -- TwitchChat filters incoming messages with
+## `message.broadcaster_user_id == broadcaster_user.id`, so every message from
+## your own channel is silently dropped even once the subscription is corrected.
+##
+## Point it at the configured broadcaster, and clear sender_user so TwitchChat
+## resolves the authenticated account itself, which is what the addon documents
+## as the default behaviour.
+func apply_chat_identity() -> void:
+	if RS.settings.broadcaster_id.is_empty():
+		_log.w("No broadcaster id configured; leaving chat identity as the scene defines it")
+		return
+
+	var user := TwitchUser.new()
+	user.id = RS.settings.broadcaster_id
+	user.login = RS.settings.broadcaster_name
+	user.display_name = RS.settings.broadcaster_name
+
+	twitch_chat.broadcaster_user = user
+	twitch_chat.sender_user = null
+	_log.i("Chat identity -> %s (%s)" % [user.display_name, user.id])
 
 
 func apply_broadcaster_id(broadcaster_id: String) -> void:
@@ -69,6 +124,11 @@ func apply_broadcaster_id(broadcaster_id: String) -> void:
 		if sub.condition.has(&"moderator_user_id"):
 			#_log.d("%s.moderator_user_id %s -> %s" %[TwitchEventsubDefinition.Type.keys()[sub.type] ,sub.condition.moderator_user_id, broadcaster_id])
 			sub.condition[&"moderator_user_id"] = broadcaster_id
+		if sub.condition.has(&"user_id"):
+			# The chat subscription carries the id of the user *reading* chat, which
+			# must be the authenticated account. The scene ships it as iRadDev's, so
+			# without this the subscription claims to be someone else.
+			sub.condition[&"user_id"] = broadcaster_id
 		if sub.condition.has(&"to_broadcaster_user_id"):
 			#_log.d("%s.to_broadcaster_user_id %s -> %s" %[TwitchEventsubDefinition.Type.keys()[sub.type] ,sub.condition.to_broadcaster_user_id, broadcaster_id])
 			sub.condition[&"to_broadcaster_user_id"] = broadcaster_id

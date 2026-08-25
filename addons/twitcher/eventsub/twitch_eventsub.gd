@@ -330,6 +330,7 @@ func _data_received(data : PackedByteArray) -> void:
 				revocation_message.payload.subscription.status)
 		"notification":
 			var notification_message = TwitchNotificationMessage.new(message_json)
+			_log.d("Notification received: %s" % notification_message.payload.subscription.type)
 			message_received.emit(notification_message)
 			event.emit(notification_message.payload.subscription.type,
 				notification_message.payload.event)

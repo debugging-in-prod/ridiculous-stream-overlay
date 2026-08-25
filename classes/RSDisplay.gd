@@ -42,14 +42,6 @@ func start() -> void:
 	set_app_scale(RS.settings.app_scale)
 
 	var w := get_window()
-	_log.i("[RSDisplay] geometry: window.size=%s  viewport=%s  content_scale_factor=%s  stretch_scale=%s  screen_xform=%s" % [
-		w.size,
-		get_viewport().get_visible_rect(),
-		get_tree().root.content_scale_factor,
-		ProjectSettings.get_setting("display/window/stretch/scale"),
-		get_viewport().get_screen_transform(),
-	])
-	_log.i("[RSDisplay] floating menu rect=%s" % [RS.btn_floating_menu.get_global_rect()])
 	_log.i("[RSDisplay] transparency: window FLAG_TRANSPARENT=%s  root.transparent_bg=%s  project.allowed=%s  project.transparent=%s  renderer=%s" % [
 		w.get_flag(Window.FLAG_TRANSPARENT),
 		get_tree().root.transparent_bg,
