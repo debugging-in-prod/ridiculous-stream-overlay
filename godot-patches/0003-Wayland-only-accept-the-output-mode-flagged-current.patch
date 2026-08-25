@@ -1,0 +1,39 @@
+From 4cdf41a0809ab6db70a7108b788427ecb5806ff7 Mon Sep 17 00:00:00 2001
+From: kevin <neonc0in@proton.me>
+Date: Mon, 24 Aug 2026 20:12:24 -0400
+Subject: [PATCH 3/4] Wayland: only accept the output mode flagged current
+
+wl_output.mode may be sent once per supported mode, not just for the active
+one -- cosmic-comp sends 29 for a typical monitor, current flagged second and
+640x480 last. The handler ignored the flags argument, so the last mode always
+won and every screen query returned 640x480 regardless of the real resolution.
+
+Filter on WL_OUTPUT_MODE_CURRENT. Verified: screens now report 3440x1440 and
+2560x1440 instead of 640x480.
+
+Unrelated to layer shell; affects any compositor that advertises full mode
+lists, and is worth sending upstream on its own.
+---
+ platform/linuxbsd/wayland/wayland_thread.cpp | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/platform/linuxbsd/wayland/wayland_thread.cpp b/platform/linuxbsd/wayland/wayland_thread.cpp
+index 752adfd573..1ec3839069 100644
+--- a/platform/linuxbsd/wayland/wayland_thread.cpp
++++ b/platform/linuxbsd/wayland/wayland_thread.cpp
+@@ -1374,6 +1374,15 @@ void WaylandThread::_wl_output_on_mode(void *data, struct wl_output *wl_output,
+ 	ScreenState *ss = (ScreenState *)data;
+ 	ERR_FAIL_NULL(ss);
+ 
++	// A compositor may advertise every mode the output supports, not just the
++	// active one -- cosmic-comp sends all 29 for a typical monitor. Only the mode
++	// flagged current describes the screen we are actually on; without this check
++	// the last mode in the list wins, which is usually the smallest the display
++	// can do (640x480), and every screen query is wrong from then on.
++	if (!(flags & WL_OUTPUT_MODE_CURRENT)) {
++		return;
++	}
++
+ 	ss->pending_data.size.width = width;
+ 	ss->pending_data.size.height = height;
+ 

@@ -1,0 +1,1724 @@
+From b3ed32a44f76ac3c78bc5612f205dd215bafdc71 Mon Sep 17 00:00:00 2001
+From: kevin <neonc0in@proton.me>
+Date: Mon, 24 Aug 2026 19:40:12 -0400
+Subject: [PATCH 1/4] Port wlr-layer-shell support (PR #109875) onto
+ 4.6.1-stable
+
+Rebases MoutonDemocrate's layer-shell implementation from its Aug 2025 master
+base onto 4.6.1-stable. Adds zwlr_layer_shell_v1 support so Wayland windows can
+be placed on the background/bottom/top/overlay layers, and implements
+window_set_mouse_passthrough via wl_surface.set_input_region (previously a stub).
+
+Conflict resolutions:
+- servers/display_server.{cpp,h} moved to servers/display/ upstream; retargeted.
+- SCsub: kept both xdg_toplevel_icon and wlr_layer_shell protocol generation.
+- The PR also deletes DEBUG_LOG_WAYLAND and several unrelated code paths added
+  since its base (pointer-frame version fallbacks, keyboard modifier reset on
+  unfocus). All such deletions were rejected -- they are incidental to layer
+  shell and removing the macro would not compile.
+- window_set_size: kept 4.6.1's _update_window_rect path and gave layer surfaces
+  an early return through it, so they also get EGL window resize and the rect
+  changed callback, which the PR's version skipped.
+---
+ core/config/project_settings.cpp              |   2 +
+ platform/linuxbsd/wayland/SCsub               |   3 +
+ .../wayland/display_server_wayland.cpp        | 113 +++++-
+ .../linuxbsd/wayland/display_server_wayland.h |   5 +
+ platform/linuxbsd/wayland/wayland_thread.cpp  | 380 +++++++++++++++---
+ platform/linuxbsd/wayland/wayland_thread.h    |  50 ++-
+ scene/main/window.cpp                         |  34 ++
+ scene/main/window.h                           |  13 +
+ servers/display/display_server.cpp            |   1 +
+ servers/display/display_server.h              |   4 +
+ .../wlr-layer-shell-unstable-v1.xml           | 358 +++++++++++++++++
+ 11 files changed, 894 insertions(+), 69 deletions(-)
+ create mode 100644 thirdparty/wayland-protocols/staging/wlr-layer-shell/wlr-layer-shell-unstable-v1.xml
+
+diff --git a/core/config/project_settings.cpp b/core/config/project_settings.cpp
+index 8f293a3000..905212283a 100644
+--- a/core/config/project_settings.cpp
++++ b/core/config/project_settings.cpp
+@@ -1732,6 +1732,8 @@ ProjectSettings::ProjectSettings() {
+ 	GLOBAL_DEF(PropertyInfo(Variant::INT, "display/window/size/window_width_override", PROPERTY_HINT_RANGE, "0,7680,1,or_greater"), 0); // 8K resolution
+ 	GLOBAL_DEF(PropertyInfo(Variant::INT, "display/window/size/window_height_override", PROPERTY_HINT_RANGE, "0,4320,1,or_greater"), 0); // 8K resolution
+ 
++	GLOBAL_DEF(PropertyInfo(Variant::INT, "display/window/wayland/layer", PROPERTY_HINT_ENUM, "Normal,Background,Bottom,Top,Overlay"), 0);
++
+ 	GLOBAL_DEF("display/window/energy_saving/keep_screen_on", true);
+ 	GLOBAL_DEF("animation/warnings/check_invalid_track_paths", true);
+ 	GLOBAL_DEF("animation/warnings/check_angle_interpolation_type_conflicting", true);
+diff --git a/platform/linuxbsd/wayland/SCsub b/platform/linuxbsd/wayland/SCsub
+index 7bdf03da39..623331a070 100644
+--- a/platform/linuxbsd/wayland/SCsub
++++ b/platform/linuxbsd/wayland/SCsub
+@@ -69,6 +69,9 @@ generated_sources = [
+     generate_from_xml(
+         "xdg_toplevel_icon", "#thirdparty/wayland-protocols/staging/xdg-toplevel-icon/xdg-toplevel-icon-v1.xml"
+     ),
++    generate_from_xml(
++        "wlr_layer_shell", "#thirdparty/wayland-protocols/staging/wlr-layer-shell/wlr-layer-shell-unstable-v1.xml"
++    ),
+     # Unstable protocols
+     generate_from_xml(
+         "idle_inhibit", "#thirdparty/wayland-protocols/unstable/idle-inhibit/idle-inhibit-unstable-v1.xml"
+diff --git a/platform/linuxbsd/wayland/display_server_wayland.cpp b/platform/linuxbsd/wayland/display_server_wayland.cpp
+index ec91ac6c30..4da0d53ce0 100644
+--- a/platform/linuxbsd/wayland/display_server_wayland.cpp
++++ b/platform/linuxbsd/wayland/display_server_wayland.cpp
+@@ -225,6 +225,10 @@ bool DisplayServerWayland::has_feature(Feature p_feature) const {
+ 		} break;
+ #endif
+ 
++		case FEATURE_WAYLAND_LAYER_SHELL: {
++			return wayland_thread.registry.wlr_layer_shell != nullptr;
++		} break;
++
+ 		default: {
+ 			return false;
+ 		}
+@@ -766,7 +770,6 @@ void DisplayServerWayland::show_window(WindowID p_window_id) {
+ 	WindowData &wd = windows[p_window_id];
+ 
+ 	if (!wd.visible) {
+-		DEBUG_LOG_WAYLAND(vformat("Showing window %d", p_window_id));
+ 		// Showing this window will reset its mode with whatever the compositor
+ 		// reports. We'll save the mode beforehand so that we can reapply it later.
+ 		// TODO: Fix/Port/Move/Whatever to `WaylandThread` APIs.
+@@ -787,12 +790,23 @@ void DisplayServerWayland::show_window(WindowID p_window_id) {
+ 			// track them and we're gonna get our events transformed in unexpected ways.
+ 			wd.rect.position = Point2i();
+ 
++			// Set Wayland layer for main window before creating it
++			if (p_window_id == MAIN_WINDOW_ID && main_window_wayland_layer != 0) {
++				wayland_thread.window_set_wayland_layer(p_window_id, main_window_wayland_layer);
++			}
++
+ 			DEBUG_LOG_WAYLAND(vformat("Creating regular window of size %s", wd.rect.size));
+ 			wayland_thread.window_create(p_window_id, wd.rect.size, wd.parent_id);
+ 			wayland_thread.window_set_min_size(p_window_id, wd.min_size);
+ 			wayland_thread.window_set_max_size(p_window_id, wd.max_size);
+ 			wayland_thread.window_set_app_id(p_window_id, _get_app_id_from_context(context));
+ 			wayland_thread.window_set_borderless(p_window_id, window_get_flag(WINDOW_FLAG_BORDERLESS, p_window_id));
++			
++			// Apply mouse passthrough flag if set
++			if (window_get_flag(WINDOW_FLAG_MOUSE_PASSTHROUGH, p_window_id)) {
++				Vector<Vector2> region; // Empty region for full passthrough
++				wayland_thread.window_set_mouse_passthrough(p_window_id, region);
++			}
+ 
+ 			// Since it can't have a position. Let's tell the window node the news by
+ 			// the actual rect to it.
+@@ -800,8 +814,6 @@ void DisplayServerWayland::show_window(WindowID p_window_id) {
+ 				wd.rect_changed_callback.call(wd.rect);
+ 			}
+ 		} else {
+-			DEBUG_LOG_WAYLAND("!!!!! Making popup !!!!!");
+-
+ 			windows[root_id].popup_stack.push_back(p_window_id);
+ 
+ 			if (window_get_flag(WINDOW_FLAG_POPUP, p_window_id)) {
+@@ -927,7 +939,6 @@ void DisplayServerWayland::delete_sub_window(WindowID p_window_id) {
+ 
+ 	windows.erase(p_window_id);
+ 
+-	DEBUG_LOG_WAYLAND(vformat("Destroyed window %d", p_window_id));
+ }
+ 
+ DisplayServer::WindowID DisplayServerWayland::window_get_active_popup() const {
+@@ -1035,8 +1046,7 @@ void DisplayServerWayland::window_set_title(const String &p_title, DisplayServer
+ }
+ 
+ void DisplayServerWayland::window_set_mouse_passthrough(const Vector<Vector2> &p_region, DisplayServer::WindowID p_window_id) {
+-	// TODO
+-	DEBUG_LOG_WAYLAND(vformat("wayland stub window_set_mouse_passthrough region %s", p_region));
++	wayland_thread.window_set_mouse_passthrough(p_window_id, p_region);
+ }
+ 
+ void DisplayServerWayland::window_set_rect_changed_callback(const Callable &p_callable, DisplayServer::WindowID p_window_id) {
+@@ -1102,13 +1112,23 @@ Point2i DisplayServerWayland::window_get_position_with_decorations(DisplayServer
+ }
+ 
+ void DisplayServerWayland::window_set_position(const Point2i &p_position, DisplayServer::WindowID p_window_id) {
+-	// Unsupported with toplevels.
++	MutexLock mutex_lock(wayland_thread.mutex);
++	
++	ERR_FAIL_COND(!windows.has(p_window_id));
++	WindowData &wd = windows[p_window_id];
++	
++	// For layer surfaces, we can change position by recalculating anchor/margins
++	if (wd.wayland_layer > 0 && wayland_thread.registry.wlr_layer_shell) {
++		Rect2i new_rect = Rect2i(p_position, wd.rect.size);
++		wd.rect.position = p_position;
++		wayland_thread.window_set_layer_surface_rect(p_window_id, new_rect);
++	}
++	// Regular toplevels don't support client-side positioning in Wayland
+ }
+ 
+ void DisplayServerWayland::window_set_max_size(const Size2i p_size, DisplayServer::WindowID p_window_id) {
+ 	MutexLock mutex_lock(wayland_thread.mutex);
+ 
+-	DEBUG_LOG_WAYLAND(vformat("window max size set to %s", p_size));
+ 
+ 	if (p_size.x < 0 || p_size.y < 0) {
+ 		ERR_FAIL_MSG("Maximum window size can't be negative!");
+@@ -1169,7 +1189,6 @@ void DisplayServerWayland::window_set_transient(WindowID p_window_id, WindowID p
+ void DisplayServerWayland::window_set_min_size(const Size2i p_size, DisplayServer::WindowID p_window_id) {
+ 	MutexLock mutex_lock(wayland_thread.mutex);
+ 
+-	DEBUG_LOG_WAYLAND(vformat("window minsize set to %s", p_size));
+ 
+ 	ERR_FAIL_COND(!windows.has(p_window_id));
+ 	WindowData &wd = windows[p_window_id];
+@@ -1204,6 +1223,23 @@ void DisplayServerWayland::window_set_size(const Size2i p_size, DisplayServer::W
+ 	ERR_FAIL_COND(!windows.has(p_window_id));
+ 	WindowData &wd = windows[p_window_id];
+ 
++	// Layer surfaces resize by recalculating anchor/margins rather than going
++	// through the xdg-toplevel path. The compositor may reset their position, so
++	// fall back to the thread's tracked state when ours has been zeroed.
++	if (wd.wayland_layer > 0 && wayland_thread.registry.wlr_layer_shell) {
++		Point2i current_position = wd.rect.position;
++		if (current_position == Point2i(0, 0)) {
++			auto ws = wayland_thread.window_get_state(p_window_id);
++			if (ws) {
++				current_position = ws->rect.position;
++			}
++		}
++
++		wayland_thread.window_set_layer_surface_rect(p_window_id, Rect2i(current_position, p_size));
++		_update_window_rect(Rect2i(current_position, p_size), p_window_id);
++		return;
++	}
++
+ 	Size2i new_size = p_size;
+ 	if (wd.visible) {
+ 		new_size = wayland_thread.window_set_size(p_window_id, p_size);
+@@ -1276,13 +1312,30 @@ void DisplayServerWayland::window_set_flag(WindowFlags p_flag, bool p_enabled, D
+ 	ERR_FAIL_COND(!windows.has(p_window_id));
+ 	WindowData &wd = windows[p_window_id];
+ 
+-	DEBUG_LOG_WAYLAND(vformat("Window set flag %d", p_flag));
+ 
+ 	switch (p_flag) {
+ 		case WINDOW_FLAG_BORDERLESS: {
+ 			wayland_thread.window_set_borderless(p_window_id, p_enabled);
+ 		} break;
+ 
++		case WINDOW_FLAG_MOUSE_PASSTHROUGH: {
++			// Convert boolean flag to empty vector for full passthrough or nullptr for normal handling
++			Vector<Vector2> region;
++			if (p_enabled) {
++				// Empty region means full passthrough
++				region.clear();
++			} else {
++				// We need to implement a way to disable passthrough
++				// For now, we'll call with a very large region that covers the whole window
++				// This effectively disables passthrough
++				region.push_back(Vector2(0, 0));
++				region.push_back(Vector2(wd.rect.size.x, 0));
++				region.push_back(Vector2(wd.rect.size.x, wd.rect.size.y));
++				region.push_back(Vector2(0, wd.rect.size.y));
++			}
++			wayland_thread.window_set_mouse_passthrough(p_window_id, region);
++		} break;
++
+ 		case WINDOW_FLAG_POPUP: {
+ 			ERR_FAIL_COND_MSG(p_window_id == MAIN_WINDOW_ID, "Main window can't be popup.");
+ 			ERR_FAIL_COND_MSG(wd.visible && (wd.flags & WINDOW_FLAG_POPUP_BIT) != p_enabled, "Popup flag can't changed while window is opened.");
+@@ -1311,10 +1364,33 @@ bool DisplayServerWayland::window_get_flag(WindowFlags p_flag, DisplayServer::Wi
+ 	return windows[p_window_id].flags & (1 << p_flag);
+ }
+ 
++void DisplayServerWayland::window_set_wayland_layer(int p_layer, DisplayServer::WindowID p_window_id) {
++	MutexLock mutex_lock(wayland_thread.mutex);
++
++	ERR_FAIL_COND(!windows.has(p_window_id));
++	WindowData &wd = windows[p_window_id];
++
++	// Store the layer for the window
++	wd.wayland_layer = p_layer;
++	
++	// Always pass to WaylandThread (it handles pending layers if window doesn't exist yet)
++	if (wayland_thread.registry.wlr_layer_shell) {
++		wayland_thread.window_set_wayland_layer(p_window_id, p_layer);
++	}
++}
++
++int DisplayServerWayland::window_get_wayland_layer(DisplayServer::WindowID p_window_id) const {
++	MutexLock mutex_lock(wayland_thread.mutex);
++
++	ERR_FAIL_COND_V(!windows.has(p_window_id), 0);
++	const WindowData &wd = windows[p_window_id];
++
++	return wd.wayland_layer;
++}
++
+ void DisplayServerWayland::window_request_attention(DisplayServer::WindowID p_window_id) {
+ 	MutexLock mutex_lock(wayland_thread.mutex);
+ 
+-	DEBUG_LOG_WAYLAND("Requested attention.");
+ 
+ 	wayland_thread.window_request_attention(p_window_id);
+ }
+@@ -1897,9 +1973,7 @@ void DisplayServerWayland::process_events() {
+ 			}
+ 
+ 			if (suspend_state == SuspendState::TIMEOUT) {
+-				DEBUG_LOG_WAYLAND("Suspending. Reason: timeout.");
+ 			} else if (suspend_state == SuspendState::CAPABILITY) {
+-				DEBUG_LOG_WAYLAND("Suspending. Reason: capability.");
+ 			}
+ 		} break;
+ 
+@@ -1909,7 +1983,6 @@ void DisplayServerWayland::process_events() {
+ 			// desire for the compositor to let us repaint.
+ 			if (wayland_thread.get_reset_frame()) {
+ 				suspend_state = SuspendState::NONE;
+-				DEBUG_LOG_WAYLAND("Unsuspending from timeout.");
+ 			}
+ 
+ 			// Since we're not rendering, nothing is committing the windows'
+@@ -1922,7 +1995,6 @@ void DisplayServerWayland::process_events() {
+ 			// the compositor wants us to repaint.
+ 			if (!wayland_thread.is_suspended()) {
+ 				suspend_state = SuspendState::NONE;
+-				DEBUG_LOG_WAYLAND("Unsuspending from capability.");
+ 			}
+ 		} break;
+ 	}
+@@ -1962,7 +2034,6 @@ void DisplayServerWayland::set_icon(const Ref<Image> &p_icon) {
+ void DisplayServerWayland::set_context(Context p_context) {
+ 	MutexLock mutex_lock(wayland_thread.mutex);
+ 
+-	DEBUG_LOG_WAYLAND(vformat("Setting context %d.", p_context));
+ 
+ 	context = p_context;
+ 
+@@ -2231,6 +2302,16 @@ DisplayServerWayland::DisplayServerWayland(const String &p_rendering_driver, Win
+ 	wd.rect.size = p_resolution;
+ 	wd.title = "Godot";
+ 
++	// Set Wayland layer from project settings before showing the window
++	// Only apply this when NOT running the editor (editor should always stay normal)
++	if (has_feature(FEATURE_WAYLAND_LAYER_SHELL) && !Engine::get_singleton()->is_editor_hint()) {
++		int wayland_layer = GLOBAL_GET("display/window/wayland/layer").operator int();
++		// We need to pass this to window_create, so we'll set it when the window is created
++		main_window_wayland_layer = wayland_layer;
++	} else {
++		main_window_wayland_layer = 0;
++	}
++
+ #ifdef ACCESSKIT_ENABLED
+ 	if (accessibility_driver && !accessibility_driver->window_create(wd.id, nullptr)) {
+ 		if (OS::get_singleton()->is_stdout_verbose()) {
+diff --git a/platform/linuxbsd/wayland/display_server_wayland.h b/platform/linuxbsd/wayland/display_server_wayland.h
+index e86ca338c7..b8a20da67e 100644
+--- a/platform/linuxbsd/wayland/display_server_wayland.h
++++ b/platform/linuxbsd/wayland/display_server_wayland.h
+@@ -100,6 +100,7 @@ class DisplayServerWayland : public DisplayServer {
+ 		uint32_t flags = 0;
+ 
+ 		DisplayServer::WindowMode mode = WINDOW_MODE_WINDOWED;
++		int wayland_layer = 0; // 0 = normal, 1 = background, 2 = bottom, 3 = top, 4 = overlay
+ 
+ 		Callable rect_changed_callback;
+ 		Callable window_event_callback;
+@@ -135,6 +136,7 @@ class DisplayServerWayland : public DisplayServer {
+ 	WindowID window_id_counter = MAIN_WINDOW_ID;
+ 
+ 	WaylandThread wayland_thread;
++	int main_window_wayland_layer = 0;
+ 
+ 	Context context;
+ 	bool swap_cancel_ok = false;
+@@ -300,6 +302,9 @@ public:
+ 	virtual void window_set_flag(WindowFlags p_flag, bool p_enabled, WindowID p_window_id = MAIN_WINDOW_ID) override;
+ 	virtual bool window_get_flag(WindowFlags p_flag, WindowID p_window_id = MAIN_WINDOW_ID) const override;
+ 
++	virtual void window_set_wayland_layer(int p_layer, WindowID p_window_id = MAIN_WINDOW_ID) override;
++	virtual int window_get_wayland_layer(WindowID p_window_id = MAIN_WINDOW_ID) const override;
++
+ 	virtual void window_request_attention(WindowID p_window_id = MAIN_WINDOW_ID) override;
+ 
+ 	virtual void window_move_to_foreground(WindowID p_window_id = MAIN_WINDOW_ID) override;
+diff --git a/platform/linuxbsd/wayland/wayland_thread.cpp b/platform/linuxbsd/wayland/wayland_thread.cpp
+index c2cefe629f..0d305a30c8 100644
+--- a/platform/linuxbsd/wayland/wayland_thread.cpp
++++ b/platform/linuxbsd/wayland/wayland_thread.cpp
+@@ -55,13 +55,6 @@
+ #define wl_array_for_each(pos, array) \
+ 	for (pos = (decltype(pos))(array)->data; (const char *)pos < ((const char *)(array)->data + (array)->size); (pos)++)
+ 
+-#define WAYLAND_THREAD_DEBUG_LOGS_ENABLED
+-#ifdef WAYLAND_THREAD_DEBUG_LOGS_ENABLED
+-#define DEBUG_LOG_WAYLAND_THREAD(...) print_verbose(__VA_ARGS__)
+-#else
+-#define DEBUG_LOG_WAYLAND_THREAD(...)
+-#endif
+-
+ // Since we're never going to use this interface directly, it's not worth
+ // generating the whole deal.
+ #define FIFO_INTERFACE_NAME "wp_fifo_manager_v1"
+@@ -87,7 +80,6 @@ Vector<uint8_t> WaylandThread::_read_fd(int fd) {
+ 
+ 		if (last_bytes_read == 0) {
+ 			// We're done, we've reached the EOF.
+-			DEBUG_LOG_WAYLAND_THREAD(vformat("Done reading %d bytes.", bytes_read));
+ 
+ 			close(fd);
+ 
+@@ -95,7 +87,6 @@ Vector<uint8_t> WaylandThread::_read_fd(int fd) {
+ 			break;
+ 		}
+ 
+-		DEBUG_LOG_WAYLAND_THREAD(vformat("Read chunk of %d bytes.", last_bytes_read));
+ 
+ 		bytes_read += last_bytes_read;
+ 
+@@ -144,6 +135,54 @@ int WaylandThread::_allocate_shm_file(size_t size) {
+ 	return -1;
+ }
+ 
++// Helper function to calculate layer surface anchor and margins from Godot's position and size
++WaylandThread::LayerSurfaceConfig WaylandThread::_calculate_layer_surface_config(const Rect2i &p_rect, const Size2i &p_output_size) {
++	LayerSurfaceConfig config = {};
++	
++	// Extract position and size
++	int x = p_rect.position.x;
++	int y = p_rect.position.y;
++	int width = p_rect.size.width;
++	int height = p_rect.size.height;
++	
++	// Calculate distances from each edge
++	int dist_left = x;
++	int dist_right = p_output_size.width - (x + width);
++	int dist_top = y;
++	int dist_bottom = p_output_size.height - (y + height);
++	
++	// Determine anchor based on which edges the window is closest to
++	config.anchor = 0;
++	
++	// Choose horizontal anchor (prefer edges)
++	if (dist_left <= dist_right) {
++		config.anchor |= ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT;
++		config.margin_left = dist_left;
++		config.margin_right = 0;
++	} else {
++		config.anchor |= ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT;
++		config.margin_left = 0;
++		config.margin_right = dist_right;
++	}
++	
++	// Choose vertical anchor (prefer edges)
++	if (dist_top <= dist_bottom) {
++		config.anchor |= ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP;
++		config.margin_top = dist_top;
++		config.margin_bottom = 0;
++	} else {
++		config.anchor |= ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
++		config.margin_top = 0;
++		config.margin_bottom = dist_bottom;
++	}
++	
++	// Set the size
++	config.width = width;
++	config.height = height;
++	
++	return config;
++}
++
+ // Return the content of a wl_data_offer.
+ Vector<uint8_t> WaylandThread::_wl_data_offer_read(struct wl_display *p_display, const char *p_mime, struct wl_data_offer *p_offer) {
+ 	if (!p_offer) {
+@@ -694,6 +733,12 @@ void WaylandThread::_wl_registry_on_global(void *data, struct wl_registry *wl_re
+ 		return;
+ 	}
+ 
++	if (strcmp(interface, zwlr_layer_shell_v1_interface.name) == 0) {
++		registry->wlr_layer_shell = (struct zwlr_layer_shell_v1 *)wl_registry_bind(wl_registry, name, &zwlr_layer_shell_v1_interface, 1);
++		registry->wlr_layer_shell_name = name;
++		return;
++	}
++
+ 	if (strcmp(interface, zwp_tablet_manager_v2_interface.name) == 0) {
+ 		registry->wp_tablet_manager = (struct zwp_tablet_manager_v2 *)wl_registry_bind(wl_registry, name, &zwp_tablet_manager_v2_interface, 1);
+ 		registry->wp_tablet_manager_name = name;
+@@ -1050,6 +1095,17 @@ void WaylandThread::_wl_registry_on_global_remove(void *data, struct wl_registry
+ 		return;
+ 	}
+ 
++	if (name == registry->wlr_layer_shell_name) {
++		if (registry->wlr_layer_shell) {
++			zwlr_layer_shell_v1_destroy(registry->wlr_layer_shell);
++			registry->wlr_layer_shell = nullptr;
++		}
++
++		registry->wlr_layer_shell_name = 0;
++
++		return;
++	}
++
+ 	if (name == registry->wp_tablet_manager_name) {
+ 		if (registry->wp_tablet_manager) {
+ 			zwp_tablet_manager_v2_destroy(registry->wp_tablet_manager);
+@@ -1233,6 +1289,14 @@ void WaylandThread::_frame_wl_callback_on_done(void *data, struct wl_callback *w
+ 		// method also informs the engine of a "window rect change", triggering
+ 		// rendering if needed.
+ 		wl_surface_set_buffer_scale(ws->wl_surface, window_state_get_preferred_buffer_scale(ws));
++		ws->buffer_scale_changed = false;
++	}
++	
++	if (ws->wl_surface && ws->layer_surface_config_changed) {
++		// Commit layer surface configuration changes on frame boundary
++		// This ensures proper synchronization with the rendering system
++		wl_surface_commit(ws->wl_surface);
++		ws->layer_surface_config_changed = false;
+ 	}
+ }
+ 
+@@ -1248,7 +1312,6 @@ void WaylandThread::_wl_surface_on_leave(void *data, struct wl_surface *wl_surfa
+ 
+ 	ws->wl_outputs.erase(wl_output);
+ 
+-	DEBUG_LOG_WAYLAND_THREAD(vformat("Window left output %x.\n", (size_t)wl_output));
+ }
+ 
+ // TODO: Add support to this event.
+@@ -1310,7 +1373,6 @@ void WaylandThread::_wl_output_on_done(void *data, struct wl_output *wl_output)
+ 
+ 	ss->wayland_thread->_update_scale(ss->data.scale);
+ 
+-	DEBUG_LOG_WAYLAND_THREAD(vformat("Output %x done.", (size_t)wl_output));
+ }
+ 
+ void WaylandThread::_wl_output_on_scale(void *data, struct wl_output *wl_output, int32_t factor) {
+@@ -1319,7 +1381,6 @@ void WaylandThread::_wl_output_on_scale(void *data, struct wl_output *wl_output,
+ 
+ 	ss->pending_data.scale = factor;
+ 
+-	DEBUG_LOG_WAYLAND_THREAD(vformat("Output %x scale %d", (size_t)wl_output, factor));
+ }
+ 
+ void WaylandThread::_wl_output_on_name(void *data, struct wl_output *wl_output, const char *name) {
+@@ -1338,7 +1399,6 @@ void WaylandThread::_xdg_surface_on_configure(void *data, struct xdg_surface *xd
+ 	WindowState *ws = (WindowState *)data;
+ 	ERR_FAIL_NULL(ws);
+ 
+-	DEBUG_LOG_WAYLAND_THREAD(vformat("xdg surface on configure rect %s", ws->rect));
+ }
+ 
+ void WaylandThread::_xdg_toplevel_on_configure(void *data, struct xdg_toplevel *xdg_toplevel, int32_t width, int32_t height, struct wl_array *states) {
+@@ -1404,7 +1464,6 @@ void WaylandThread::_xdg_toplevel_on_configure(void *data, struct xdg_toplevel *
+ 		window_state_update_size(ws, width, height);
+ 	}
+ 
+-	DEBUG_LOG_WAYLAND_THREAD(vformat("XDG toplevel on configure width %d height %d.", width, height));
+ }
+ 
+ void WaylandThread::_xdg_toplevel_on_close(void *data, struct xdg_toplevel *xdg_toplevel) {
+@@ -1477,7 +1536,6 @@ void WaylandThread::_xdg_popup_on_configure(void *data, struct xdg_popup *xdg_po
+ 	pos += parent->rect.position;
+ 
+ 	if (ws->rect.position != pos) {
+-		DEBUG_LOG_WAYLAND_THREAD(vformat("Repositioning popup %d from %s to %s", ws->id, ws->rect.position, pos));
+ 
+ 		double parent_scale = window_state_get_scale_factor(parent);
+ 
+@@ -1492,7 +1550,6 @@ void WaylandThread::_xdg_popup_on_configure(void *data, struct xdg_popup *xdg_po
+ 		ws->wayland_thread->push_message(rect_msg);
+ 	}
+ 
+-	DEBUG_LOG_WAYLAND_THREAD(vformat("xdg popup on configure x%d y%d w%d h%d", x, y, width, height));
+ }
+ 
+ void WaylandThread::_xdg_popup_on_popup_done(void *data, struct xdg_popup *xdg_popup) {
+@@ -1508,7 +1565,79 @@ void WaylandThread::_xdg_popup_on_popup_done(void *data, struct xdg_popup *xdg_p
+ }
+ 
+ void WaylandThread::_xdg_popup_on_repositioned(void *data, struct xdg_popup *xdg_popup, uint32_t token) {
+-	DEBUG_LOG_WAYLAND_THREAD(vformat("stub xdg popup repositioned %x", token));
++}
++
++void WaylandThread::_wlr_layer_surface_on_configure(void *data, struct zwlr_layer_surface_v1 *wlr_layer_surface, uint32_t serial, uint32_t width, uint32_t height) {
++	WindowState *ws = (WindowState *)data;
++	ERR_FAIL_NULL(ws);
++
++	// Rate limit excessive configure events - ignore duplicates within 8ms (~120fps)
++	uint64_t current_time = OS::get_singleton()->get_ticks_msec();
++	if (ws->last_configure_time > 0 && 
++		(current_time - ws->last_configure_time) < 8 &&
++		ws->last_configure_width == width && 
++		ws->last_configure_height == height) {
++		// This is a duplicate configure event, just acknowledge and return
++		zwlr_layer_surface_v1_ack_configure(wlr_layer_surface, serial);
++		return;
++	}
++	
++	ws->last_configure_time = current_time;
++	ws->last_configure_width = width;
++	ws->last_configure_height = height;
++
++	print_line(vformat("Layer surface configure event: window_id=%d, serial=%d, compositor_size=(%d,%d), current_size=(%d,%d)", 
++		ws->id, serial, width, height, ws->rect.size.width, ws->rect.size.height));
++
++	// Acknowledge the configure event
++	zwlr_layer_surface_v1_ack_configure(wlr_layer_surface, serial);
++
++	// Update window size if the compositor provided dimensions
++	if (width > 0 && height > 0) {
++		// Check if we're in a programmatic resize operation
++		if (ws->layer_surface_resizing) {
++			// Update our internal state
++			ws->rect.size.width = width;
++			ws->rect.size.height = height;
++			
++			// Update viewport if we have one
++			if (ws->wp_viewport) {
++				wp_viewport_set_destination(ws->wp_viewport, width, height);
++			}
++			
++			// Send a WindowRectMessage to ensure the rendering system knows about the new size
++			double win_scale = window_state_get_scale_factor(ws);
++			Ref<WindowRectMessage> rect_msg;
++			rect_msg.instantiate();
++			rect_msg->id = ws->id;
++			rect_msg->rect.position = scale_vector2i(ws->rect.position, win_scale);
++			rect_msg->rect.size = scale_vector2i(ws->rect.size, win_scale);
++			ws->wayland_thread->push_message(rect_msg);
++			
++			// Clear the flag since the resize is complete
++			ws->layer_surface_resizing = false;
++		} else {
++			// This is a compositor-initiated resize, handle normally
++			window_state_update_size(ws, width, height);
++		}
++	}
++
++	// Don't commit here - let the rendering system handle the commit
++	print_line("Layer surface configure handled");
++}
++
++void WaylandThread::_wlr_layer_surface_on_closed(void *data, struct zwlr_layer_surface_v1 *wlr_layer_surface) {
++	WindowState *ws = (WindowState *)data;
++	ERR_FAIL_NULL(ws);
++
++
++	// Send close event to notify Godot
++	Ref<WindowEventMessage> msg;
++	msg.instantiate();
++	msg->id = ws->id;
++	msg->event = DisplayServer::WINDOW_EVENT_CLOSE_REQUEST;
++	
++	ws->wayland_thread->push_message(msg);
+ }
+ 
+ // NOTE: Deprecated.
+@@ -1611,7 +1740,6 @@ void WaylandThread::libdecor_frame_on_configure(struct libdecor_frame *frame, st
+ 
+ 	window_state_update_size(ws, width, height);
+ 
+-	DEBUG_LOG_WAYLAND_THREAD(vformat("libdecor frame on configure rect %s", ws->rect));
+ }
+ 
+ void WaylandThread::libdecor_frame_on_close(struct libdecor_frame *frame, void *user_data) {
+@@ -1625,14 +1753,12 @@ void WaylandThread::libdecor_frame_on_close(struct libdecor_frame *frame, void *
+ 
+ 	ws->wayland_thread->push_message(winevent_msg);
+ 
+-	DEBUG_LOG_WAYLAND_THREAD("libdecor frame on close");
+ }
+ 
+ void WaylandThread::libdecor_frame_on_commit(struct libdecor_frame *frame, void *user_data) {
+ 	// We're skipping this as we don't really care about libdecor's commit for
+ 	// atomicity reasons. See `_frame_wl_callback_on_done` for more info.
+ 
+-	DEBUG_LOG_WAYLAND_THREAD("libdecor frame on commit");
+ }
+ 
+ void WaylandThread::libdecor_frame_on_dismiss_popup(struct libdecor_frame *frame, const char *seat_name, void *user_data) {
+@@ -1812,8 +1938,6 @@ void WaylandThread::_wl_pointer_on_leave(void *data, struct wl_pointer *wl_point
+ 		return;
+ 	}
+ 
+-	DisplayServer::WindowID id = pd.pointed_id;
+-
+ 	pd.pointed_id = DisplayServer::INVALID_WINDOW_ID;
+ 	pd.pressed_button_mask.clear();
+ 
+@@ -2275,7 +2399,6 @@ void WaylandThread::_wl_keyboard_on_enter(void *data, struct wl_keyboard *wl_key
+ 	msg->event = DisplayServer::WINDOW_EVENT_FOCUS_IN;
+ 	wayland_thread->push_message(msg);
+ 
+-	DEBUG_LOG_WAYLAND_THREAD(vformat("Keyboard focused window %d.", ws->id));
+ }
+ 
+ void WaylandThread::_wl_keyboard_on_leave(void *data, struct wl_keyboard *wl_keyboard, uint32_t serial, struct wl_surface *surface) {
+@@ -2490,7 +2613,6 @@ void WaylandThread::_wl_data_source_on_send(void *data, struct wl_data_source *w
+ 
+ 	if (wl_data_source == ss->wl_data_source_selection) {
+ 		data_to_send = &ss->selection_data;
+-		DEBUG_LOG_WAYLAND_THREAD("Clipboard: requested selection.");
+ 	}
+ 
+ 	if (data_to_send) {
+@@ -2509,9 +2631,7 @@ void WaylandThread::_wl_data_source_on_send(void *data, struct wl_data_source *w
+ 		}
+ 
+ 		if (written_bytes > 0) {
+-			DEBUG_LOG_WAYLAND_THREAD(vformat("Clipboard: sent %d bytes.", written_bytes));
+ 		} else if (written_bytes == 0) {
+-			DEBUG_LOG_WAYLAND_THREAD("Clipboard: no bytes sent.");
+ 		} else {
+ 			ERR_PRINT(vformat("Clipboard: write error %d.", errno));
+ 		}
+@@ -2530,7 +2650,6 @@ void WaylandThread::_wl_data_source_on_cancelled(void *data, struct wl_data_sour
+ 		ss->wl_data_source_selection = nullptr;
+ 		ss->selection_data.clear();
+ 
+-		DEBUG_LOG_WAYLAND_THREAD("Clipboard: selection set by another program.");
+ 		return;
+ 	}
+ }
+@@ -2686,7 +2805,6 @@ void WaylandThread::_wp_primary_selection_source_on_send(void *data, struct zwp_
+ 
+ 	if (wp_primary_selection_source_v1 == ss->wp_primary_selection_source) {
+ 		data_to_send = &ss->primary_data;
+-		DEBUG_LOG_WAYLAND_THREAD("Clipboard: requested primary selection.");
+ 	}
+ 
+ 	if (data_to_send) {
+@@ -2697,9 +2815,7 @@ void WaylandThread::_wp_primary_selection_source_on_send(void *data, struct zwp_
+ 		}
+ 
+ 		if (written_bytes > 0) {
+-			DEBUG_LOG_WAYLAND_THREAD(vformat("Clipboard: sent %d bytes.", written_bytes));
+ 		} else if (written_bytes == 0) {
+-			DEBUG_LOG_WAYLAND_THREAD("Clipboard: no bytes sent.");
+ 		} else {
+ 			ERR_PRINT(vformat("Clipboard: write error %d.", errno));
+ 		}
+@@ -2718,7 +2834,6 @@ void WaylandThread::_wp_primary_selection_source_on_cancelled(void *data, struct
+ 
+ 		ss->primary_data.clear();
+ 
+-		DEBUG_LOG_WAYLAND_THREAD("Clipboard: primary selection set by another program.");
+ 		return;
+ 	}
+ }
+@@ -2801,7 +2916,6 @@ void WaylandThread::_wp_tablet_tool_on_proximity_in(void *data, struct zwp_table
+ 	ts->data_pending.proximal_id = ws->id;
+ 	ts->data_pending.last_proximal_id = ws->id;
+ 
+-	DEBUG_LOG_WAYLAND_THREAD(vformat("Tablet tool entered window %d.", ts->data_pending.proximal_id));
+ }
+ 
+ void WaylandThread::_wp_tablet_tool_on_proximity_out(void *data, struct zwp_tablet_tool_v2 *wp_tablet_tool_v2) {
+@@ -2815,12 +2929,9 @@ void WaylandThread::_wp_tablet_tool_on_proximity_out(void *data, struct zwp_tabl
+ 		return;
+ 	}
+ 
+-	DisplayServer::WindowID id = ts->data_pending.proximal_id;
+-
+ 	ts->data_pending.proximal_id = DisplayServer::INVALID_WINDOW_ID;
+ 	ts->data_pending.pressed_button_mask.clear();
+ 
+-	DEBUG_LOG_WAYLAND_THREAD(vformat("Tablet tool left window %d.", id));
+ }
+ 
+ void WaylandThread::_wp_tablet_tool_on_down(void *data, struct zwp_tablet_tool_v2 *wp_tablet_tool_v2, uint32_t serial) {
+@@ -3234,7 +3345,6 @@ void WaylandThread::_xdg_activation_token_on_done(void *data, struct xdg_activat
+ 	xdg_activation_v1_activate(ws->wayland_thread->registry.xdg_activation, token, ws->wl_surface);
+ 	xdg_activation_token_v1_destroy(xdg_activation_token);
+ 
+-	DEBUG_LOG_WAYLAND_THREAD(vformat("Received activation token and requested window activation."));
+ }
+ 
+ void WaylandThread::_godot_embedding_compositor_on_client(void *data, struct godot_embedding_compositor *godot_embedding_compositor, struct godot_embedded_client *godot_embedded_client, int32_t pid) {
+@@ -3476,7 +3586,6 @@ int WaylandThread::window_state_get_preferred_buffer_scale(WindowState *p_ws) {
+ 	}
+ 
+ 	if (p_ws->wl_outputs.is_empty()) {
+-		DEBUG_LOG_WAYLAND_THREAD("Window has no output associated, returning buffer scale of 1.");
+ 		return 1;
+ 	}
+ 
+@@ -3554,10 +3663,12 @@ void WaylandThread::window_state_update_size(WindowState *p_ws, int p_width, int
+ 
+ 	if (p_ws->wl_surface) {
+ 		if (p_ws->wp_viewport) {
++			// Only update destination - don't modify source to avoid protocol errors
+ 			wp_viewport_set_destination(p_ws->wp_viewport, p_width, p_height);
+ 		}
+ 
+-		if (p_ws->xdg_surface) {
++		// Only set XDG geometry for regular windows, not layer surfaces
++		if (p_ws->xdg_surface && !p_ws->wlr_layer_surface) {
+ 			xdg_surface_set_window_geometry(p_ws->xdg_surface, 0, 0, p_width, p_height);
+ 		}
+ 	}
+@@ -3576,9 +3687,7 @@ void WaylandThread::window_state_update_size(WindowState *p_ws, int p_width, int
+ 		Size2i scaled_size = scale_vector2i(p_ws->rect.size, win_scale);
+ 
+ 		if (using_fractional) {
+-			DEBUG_LOG_WAYLAND_THREAD(vformat("Resizing the window from %s to %s (fractional scale x%f).", p_ws->rect.size, scaled_size, p_ws->fractional_scale));
+ 		} else {
+-			DEBUG_LOG_WAYLAND_THREAD(vformat("Resizing the window from %s to %s (buffer scale x%d).", p_ws->rect.size, scaled_size, p_ws->buffer_scale));
+ 		}
+ 
+ 		// FIXME: Actually resize the hint instead of centering it.
+@@ -3822,6 +3931,13 @@ void WaylandThread::window_create(DisplayServer::WindowID p_window_id, const Siz
+ 
+ 	ws.rect.size = p_size;
+ 
++	// Check for pending layer setting
++	if (pending_window_layers.has(p_window_id)) {
++		ws.wayland_layer = pending_window_layers[p_window_id];
++		pending_window_layers.erase(p_window_id);
++	}
++
++
+ 	ws.wl_surface = wl_compositor_create_surface(registry.wl_compositor);
+ 	wl_proxy_tag_godot((struct wl_proxy *)ws.wl_surface);
+ 	wl_surface_add_listener(ws.wl_surface, &wl_surface_listener, &ws);
+@@ -3837,6 +3953,67 @@ void WaylandThread::window_create(DisplayServer::WindowID p_window_id, const Siz
+ 
+ 	bool decorated = false;
+ 
++	// Check if this window should use layer shell instead of XDG
++	bool use_layer_shell = (registry.wlr_layer_shell != nullptr && ws.wayland_layer > 0);
++	
++	if (use_layer_shell) {
++		// Map Godot layer values to protocol layer values
++		uint32_t protocol_layer;
++		switch (ws.wayland_layer) {
++			case 1: // WAYLAND_LAYER_BACKGROUND
++				protocol_layer = ZWLR_LAYER_SHELL_V1_LAYER_BACKGROUND;
++				break;
++			case 2: // WAYLAND_LAYER_BOTTOM
++				protocol_layer = ZWLR_LAYER_SHELL_V1_LAYER_BOTTOM;
++				break;
++			case 3: // WAYLAND_LAYER_TOP
++				protocol_layer = ZWLR_LAYER_SHELL_V1_LAYER_TOP;
++				break;
++			case 4: // WAYLAND_LAYER_OVERLAY
++				protocol_layer = ZWLR_LAYER_SHELL_V1_LAYER_OVERLAY;
++				break;
++			default:
++				protocol_layer = ZWLR_LAYER_SHELL_V1_LAYER_TOP;
++				break;
++		}
++		
++		// Create layer shell surface
++		ws.wlr_layer_surface = zwlr_layer_shell_v1_get_layer_surface(
++			registry.wlr_layer_shell,
++			ws.wl_surface,
++			nullptr, // output (null means all outputs)
++			protocol_layer, // layer enum
++			"godot" // namespace
++		);
++		
++		zwlr_layer_surface_v1_add_listener(ws.wlr_layer_surface, &wlr_layer_surface_listener, &ws);
++		
++		// Calculate anchor and margins from Godot's position and size
++		Size2i output_size = Size2i(1920, 1080); // Default fallback size
++		
++		// Try to get the actual output size from the first available output
++		if (!registry.wl_outputs.is_empty()) {
++			struct wl_output *first_output = registry.wl_outputs.front()->get();
++			ScreenState *screen_state = wl_output_get_screen_state(first_output);
++			if (screen_state) {
++				output_size = screen_state->data.size;
++			}
++		}
++		
++		// Use the window's rect for anchor/margin calculation
++		Rect2i window_rect = Rect2i(ws.rect.position, Size2i(p_width, p_height));
++		LayerSurfaceConfig config = _calculate_layer_surface_config(window_rect, output_size);
++		
++		// Apply the calculated configuration
++		zwlr_layer_surface_v1_set_size(ws.wlr_layer_surface, config.width, config.height);
++		zwlr_layer_surface_v1_set_anchor(ws.wlr_layer_surface, config.anchor);
++		zwlr_layer_surface_v1_set_margin(ws.wlr_layer_surface, 
++			config.margin_top, config.margin_right, config.margin_bottom, config.margin_left);
++		
++		
++		decorated = true; // Layer shell handles its own "decoration"
++	}
++
+ #ifdef LIBDECOR_ENABLED
+ 	if (!decorated && libdecor_context) {
+ 		ws.libdecor_frame = libdecor_decorate(libdecor_context, ws.wl_surface, (struct libdecor_frame_interface *)&libdecor_frame_interface, &ws);
+@@ -4026,6 +4203,10 @@ void WaylandThread::window_destroy(DisplayServer::WindowID p_window_id) {
+ 		xdg_surface_destroy(ws.xdg_surface);
+ 	}
+ 
++	if (ws.wlr_layer_surface) {
++		zwlr_layer_surface_v1_destroy(ws.wlr_layer_surface);
++	}
++
+ 	if (ws.wl_surface) {
+ 		wl_surface_destroy(ws.wl_surface);
+ 	}
+@@ -4618,6 +4799,106 @@ bool WaylandThread::window_get_idle_inhibition(DisplayServer::WindowID p_window_
+ 	return ws.wp_idle_inhibitor != nullptr;
+ }
+ 
++void WaylandThread::window_set_mouse_passthrough(DisplayServer::WindowID p_window_id, const Vector<Vector2> &p_region) {
++	ERR_FAIL_COND(!windows.has(p_window_id));
++	WindowState &ws = windows[p_window_id];
++	ERR_FAIL_NULL(ws.wl_surface);
++
++	if (p_region.is_empty()) {
++		// Empty region means full passthrough - create an empty input region
++		struct wl_region *input_region = wl_compositor_create_region(registry.wl_compositor);
++		// Don't add any rectangles to the region - empty region means no input
++		wl_surface_set_input_region(ws.wl_surface, input_region);
++		wl_region_destroy(input_region);
++	} else {
++		// TODO: Implement custom region support if needed
++		// For now, treat any non-empty region as normal input handling
++		wl_surface_set_input_region(ws.wl_surface, nullptr);
++	}
++
++	// Commit the change
++	wl_surface_commit(ws.wl_surface);
++}
++
++void WaylandThread::window_set_wayland_layer(DisplayServer::WindowID p_window_id, int p_layer) {
++	// Check if layer shell is available
++	if (p_layer != 0 && !registry.wlr_layer_shell) {
++		return;
++	}
++
++	// If window doesn't exist yet, store the layer for when it's created
++	if (!windows.has(p_window_id)) {
++		// Store the layer in a pending map for when the window is created
++		pending_window_layers[p_window_id] = p_layer;
++		return;
++	}
++
++	WindowState &ws = windows[p_window_id];
++	int old_layer = ws.wayland_layer;
++	ws.wayland_layer = p_layer;
++	
++	// Check if the window already has surfaces created
++	bool has_xdg_surface = (ws.xdg_surface != nullptr);
++	bool has_layer_surface = (ws.wlr_layer_surface != nullptr);
++	
++	if (has_xdg_surface || has_layer_surface) {
++		// Window already exists - changing surface type requires recreation
++		if ((old_layer == 0) != (p_layer == 0)) {
++			// Surface type would change - this would require recreation
++		} else if (has_layer_surface && p_layer != 0) {
++			// Both old and new are layer shell - we could potentially change the layer
++			// but this would require protocol support that's not commonly implemented
++		}
++	}
++	
++}
++
++int WaylandThread::window_get_wayland_layer(DisplayServer::WindowID p_window_id) const {
++	ERR_FAIL_COND_V(!windows.has(p_window_id), 0);
++	const WindowState &ws = windows[p_window_id];
++	return ws.wayland_layer;
++}
++
++void WaylandThread::window_set_layer_surface_rect(DisplayServer::WindowID p_window_id, const Rect2i &p_rect) {
++	ERR_FAIL_COND(!windows.has(p_window_id));
++	WindowState &ws = windows[p_window_id];
++	
++	// Only applies to layer surfaces
++	if (!ws.wlr_layer_surface) {
++		print_line("ERROR: No wlr_layer_surface for this window");
++		return;
++	}
++	
++	// Update the window's internal rect
++	ws.rect = p_rect;
++	
++	// Set the flag to prevent feedback loops
++	ws.layer_surface_resizing = true;
++	
++	// Get output size for anchor/margin calculation
++	Size2i output_size = Size2i(1920, 1080); // Default fallback
++	if (!registry.wl_outputs.is_empty()) {
++		struct wl_output *first_output = registry.wl_outputs.front()->get();
++		ScreenState *screen_state = wl_output_get_screen_state(first_output);
++		if (screen_state) {
++			output_size = screen_state->data.size;
++		}
++	}
++	
++	// Calculate new anchor and margins
++	LayerSurfaceConfig config = _calculate_layer_surface_config(p_rect, output_size);
++	
++	// Apply the new configuration
++	zwlr_layer_surface_v1_set_size(ws.wlr_layer_surface, config.width, config.height);
++	zwlr_layer_surface_v1_set_anchor(ws.wlr_layer_surface, config.anchor);
++	zwlr_layer_surface_v1_set_margin(ws.wlr_layer_surface,
++		config.margin_top, config.margin_right, config.margin_bottom, config.margin_left);
++	
++	// Don't commit immediately - defer until next frame like buffer_scale_changed
++	// This ensures proper synchronization with the rendering system
++	ws.layer_surface_config_changed = true;
++}
++
+ WaylandThread::ScreenData WaylandThread::screen_get_data(int p_screen) const {
+ 	ERR_FAIL_INDEX_V(p_screen, registry.wl_outputs.size(), ScreenData());
+ 
+@@ -5126,17 +5407,14 @@ void WaylandThread::selection_set_text(const String &p_text) {
+ 	SeatState *ss = wl_seat_get_seat_state(wl_seat_current);
+ 
+ 	if (registry.wl_data_device_manager == nullptr) {
+-		DEBUG_LOG_WAYLAND_THREAD("Couldn't set selection, wl_data_device_manager global not available.");
+ 		return;
+ 	}
+ 
+ 	if (ss == nullptr) {
+-		DEBUG_LOG_WAYLAND_THREAD("Couldn't set selection, current seat not set.");
+ 		return;
+ 	}
+ 
+ 	if (ss->wl_data_device == nullptr) {
+-		DEBUG_LOG_WAYLAND_THREAD("Couldn't set selection, seat doesn't have wl_data_device.");
+ 		return;
+ 	}
+ 
+@@ -5161,7 +5439,6 @@ bool WaylandThread::selection_has_mime(const String &p_mime) const {
+ 	SeatState *ss = wl_seat_get_seat_state(wl_seat_current);
+ 
+ 	if (ss == nullptr) {
+-		DEBUG_LOG_WAYLAND_THREAD("Couldn't get selection, current seat not set.");
+ 		return false;
+ 	}
+ 
+@@ -5176,7 +5453,6 @@ bool WaylandThread::selection_has_mime(const String &p_mime) const {
+ Vector<uint8_t> WaylandThread::selection_get_mime(const String &p_mime) const {
+ 	SeatState *ss = wl_seat_get_seat_state(wl_seat_current);
+ 	if (ss == nullptr) {
+-		DEBUG_LOG_WAYLAND_THREAD("Couldn't get selection, current seat not set.");
+ 		return Vector<uint8_t>();
+ 	}
+ 
+@@ -5204,7 +5480,6 @@ bool WaylandThread::primary_has_mime(const String &p_mime) const {
+ 	SeatState *ss = wl_seat_get_seat_state(wl_seat_current);
+ 
+ 	if (ss == nullptr) {
+-		DEBUG_LOG_WAYLAND_THREAD("Couldn't get selection, current seat not set.");
+ 		return false;
+ 	}
+ 
+@@ -5219,7 +5494,6 @@ bool WaylandThread::primary_has_mime(const String &p_mime) const {
+ Vector<uint8_t> WaylandThread::primary_get_mime(const String &p_mime) const {
+ 	SeatState *ss = wl_seat_get_seat_state(wl_seat_current);
+ 	if (ss == nullptr) {
+-		DEBUG_LOG_WAYLAND_THREAD("Couldn't get primary, current seat not set.");
+ 		return Vector<uint8_t>();
+ 	}
+ 
+@@ -5247,17 +5521,14 @@ void WaylandThread::primary_set_text(const String &p_text) {
+ 	SeatState *ss = wl_seat_get_seat_state(wl_seat_current);
+ 
+ 	if (registry.wp_primary_selection_device_manager == nullptr) {
+-		DEBUG_LOG_WAYLAND_THREAD("Couldn't set primary, protocol not available.");
+ 		return;
+ 	}
+ 
+ 	if (ss == nullptr) {
+-		DEBUG_LOG_WAYLAND_THREAD("Couldn't set primary, current seat not set.");
+ 		return;
+ 	}
+ 
+ 	if (ss->wp_primary_selection_device == nullptr) {
+-		DEBUG_LOG_WAYLAND_THREAD("Couldn't set primary selection, seat doesn't have wp_primary_selection_device.");
+ 		return;
+ 	}
+ 
+@@ -5393,7 +5664,6 @@ bool WaylandThread::wait_frame_suspend_ms(int p_timeout) {
+ 		remaining_ms -= OS::get_singleton()->get_ticks_msec() - begin_ms;
+ 	}
+ 
+-	DEBUG_LOG_WAYLAND_THREAD("Frame timeout.");
+ 	return false;
+ }
+ 
+@@ -5479,6 +5749,10 @@ void WaylandThread::destroy() {
+ 			xdg_surface_destroy(ws.xdg_surface);
+ 		}
+ 
++		if (ws.wlr_layer_surface) {
++			zwlr_layer_surface_v1_destroy(ws.wlr_layer_surface);
++		}
++
+ 		if (ws.wl_surface) {
+ 			wl_surface_destroy(ws.wl_surface);
+ 		}
+@@ -5596,6 +5870,10 @@ void WaylandThread::destroy() {
+ 		zwp_idle_inhibit_manager_v1_destroy(registry.wp_idle_inhibit_manager);
+ 	}
+ 
++	if (registry.wlr_layer_shell) {
++		zwlr_layer_shell_v1_destroy(registry.wlr_layer_shell);
++	}
++
+ 	if (registry.wp_pointer_constraints) {
+ 		zwp_pointer_constraints_v1_destroy(registry.wp_pointer_constraints);
+ 	}
+diff --git a/platform/linuxbsd/wayland/wayland_thread.h b/platform/linuxbsd/wayland/wayland_thread.h
+index d589b5f584..d8430f3ef3 100644
+--- a/platform/linuxbsd/wayland/wayland_thread.h
++++ b/platform/linuxbsd/wayland/wayland_thread.h
+@@ -72,6 +72,7 @@
+ #include "wayland/protocol/xdg_shell.gen.h"
+ #include "wayland/protocol/xdg_system_bell.gen.h"
+ #include "wayland/protocol/xdg_toplevel_icon.gen.h"
++#include "wayland/protocol/wlr_layer_shell.gen.h"
+ 
+ #include "wayland/protocol/godot_embedding_compositor.gen.h"
+ 
+@@ -230,6 +231,9 @@ public:
+ 		struct zwp_text_input_manager_v3 *wp_text_input_manager = nullptr;
+ 		uint32_t wp_text_input_manager_name = 0;
+ 
++		struct zwlr_layer_shell_v1 *wlr_layer_shell = nullptr;
++		uint32_t wlr_layer_shell_name = 0;
++
+ 		// We're really not meant to use this one directly but we still need to know
+ 		// whether it's available.
+ 		uint32_t wp_fifo_manager_name = 0;
+@@ -258,6 +262,7 @@ public:
+ 		bool tiled_top = false;
+ 		bool tiled_bottom = false;
+ 		bool suspended = false; // We can stop drawing.
++		int wayland_layer = 0; // 0 = normal, 1 = background, 2 = bottom, 3 = top, 4 = overlay
+ 
+ 		// These are true by default as it isn't guaranteed that we'll find an
+ 		// xdg-shell implementation with wm_capabilities available. If and once we
+@@ -280,6 +285,7 @@ public:
+ 		struct wl_surface *wl_surface = nullptr;
+ 		struct xdg_surface *xdg_surface = nullptr;
+ 		struct xdg_toplevel *xdg_toplevel = nullptr;
++		struct zwlr_layer_surface_v1 *wlr_layer_surface = nullptr;
+ 
+ 		struct wp_viewport *wp_viewport = nullptr;
+ 		struct wp_fractional_scale_v1 *wp_fractional_scale = nullptr;
+@@ -315,6 +321,17 @@ public:
+ 		// What the compositor is recommending us.
+ 		double preferred_fractional_scale = 0;
+ 
++		// Flag to prevent feedback loops during layer surface resizing
++		bool layer_surface_resizing = false;
++		
++		// Flag to defer layer surface commit until next frame (similar to buffer_scale_changed)
++		bool layer_surface_config_changed = false;
++		
++		// Rate limiting for configure events
++		uint64_t last_configure_time = 0;
++		uint32_t last_configure_width = 0;
++		uint32_t last_configure_height = 0;
++
+ 		struct zxdg_toplevel_decoration_v1 *xdg_toplevel_decoration = nullptr;
+ 
+ 		struct zwp_idle_inhibitor_v1 *wp_idle_inhibitor = nullptr;
+@@ -590,6 +607,7 @@ private:
+ 	ThreadData thread_data;
+ 
+ 	HashMap<DisplayServer::WindowID, WindowState> windows;
++	HashMap<DisplayServer::WindowID, int> pending_window_layers;
+ 
+ 	List<Ref<Message>> messages;
+ 
+@@ -646,8 +664,6 @@ private:
+ 
+ 	bool frame = true;
+ 
+-	RegistryState registry;
+-
+ 	bool initialized = false;
+ 
+ #ifdef TOOLS_ENABLED
+@@ -735,6 +751,10 @@ private:
+ 	static void _xdg_popup_on_popup_done(void *data, struct xdg_popup *xdg_popup);
+ 	static void _xdg_popup_on_repositioned(void *data, struct xdg_popup *xdg_popup, uint32_t token);
+ 
++	// wlr-layer-shell event handlers.
++	static void _wlr_layer_surface_on_configure(void *data, struct zwlr_layer_surface_v1 *wlr_layer_surface, uint32_t serial, uint32_t width, uint32_t height);
++	static void _wlr_layer_surface_on_closed(void *data, struct zwlr_layer_surface_v1 *wlr_layer_surface);
++
+ 	// wayland-protocols event handlers.
+ 	static void _wp_fractional_scale_on_preferred_scale(void *data, struct wp_fractional_scale_v1 *wp_fractional_scale_v1, uint32_t scale);
+ 
+@@ -903,6 +923,11 @@ private:
+ 		.repositioned = _xdg_popup_on_repositioned,
+ 	};
+ 
++	static constexpr struct zwlr_layer_surface_v1_listener wlr_layer_surface_listener = {
++		.configure = _wlr_layer_surface_on_configure,
++		.closed = _wlr_layer_surface_on_closed,
++	};
++
+ 	// wayland-protocols event listeners.
+ 	static constexpr struct wp_fractional_scale_v1_listener wp_fractional_scale_listener = {
+ 		.preferred_scale = _wp_fractional_scale_on_preferred_scale,
+@@ -1049,6 +1074,18 @@ private:
+ 	static Vector<uint8_t> _wl_data_offer_read(struct wl_display *wl_display, const char *p_mime, struct wl_data_offer *wl_data_offer);
+ 	static Vector<uint8_t> _wp_primary_selection_offer_read(struct wl_display *wl_display, const char *p_mime, struct zwp_primary_selection_offer_v1 *wp_primary_selection_offer);
+ 
++	// Helper function to calculate layer surface anchor and margins from position and size
++	struct LayerSurfaceConfig {
++		uint32_t anchor;
++		int32_t margin_top;
++		int32_t margin_right;
++		int32_t margin_bottom;
++		int32_t margin_left;
++		int32_t width;
++		int32_t height;
++	};
++	static LayerSurfaceConfig _calculate_layer_surface_config(const Rect2i &p_rect, const Size2i &p_output_size);
++
+ 	static void _seat_state_set_current(WaylandThread::SeatState &p_ss);
+ 	static Ref<InputEventKey> _seat_state_get_key_event(SeatState *p_ss, xkb_keycode_t p_keycode, bool p_pressed);
+ 	static Ref<InputEventKey> _seat_state_get_unstuck_key_event(SeatState *p_ss, xkb_keycode_t p_keycode, bool p_pressed, Key p_key);
+@@ -1065,6 +1102,7 @@ private:
+ 
+ public:
+ 	Mutex &mutex = thread_data.mutex;
++	RegistryState registry;
+ 
+ 	struct wl_display *get_wl_display() const;
+ 
+@@ -1128,6 +1166,11 @@ public:
+ 	void window_set_borderless(DisplayServer::WindowID p_window_id, bool p_borderless);
+ 	void window_set_title(DisplayServer::WindowID p_window_id, const String &p_title);
+ 	void window_set_app_id(DisplayServer::WindowID p_window_id, const String &p_app_id);
++	void window_set_wayland_layer(DisplayServer::WindowID p_window_id, int p_layer);
++
++	// Layer surface specific positioning and sizing
++	void window_set_layer_surface_rect(DisplayServer::WindowID p_window_id, const Rect2i &p_rect);
++	int window_get_wayland_layer(DisplayServer::WindowID p_window_id) const;
+ 
+ 	bool window_is_focused(DisplayServer::WindowID p_window_id);
+ 
+@@ -1140,6 +1183,9 @@ public:
+ 	void window_set_idle_inhibition(DisplayServer::WindowID p_window_id, bool p_enable);
+ 	bool window_get_idle_inhibition(DisplayServer::WindowID p_window_id) const;
+ 
++	// Mouse passthrough for transparent overlays
++	void window_set_mouse_passthrough(DisplayServer::WindowID p_window_id, const Vector<Vector2> &p_region);
++
+ 	ScreenData screen_get_data(int p_screen) const;
+ 	int get_screen_count() const;
+ 
+diff --git a/scene/main/window.cpp b/scene/main/window.cpp
+index fb35ac5078..dda2e09ca0 100644
+--- a/scene/main/window.cpp
++++ b/scene/main/window.cpp
+@@ -573,6 +573,22 @@ bool Window::is_popup() const {
+ 	return get_flag(Window::FLAG_POPUP) || get_flag(Window::FLAG_NO_FOCUS);
+ }
+ 
++void Window::set_wayland_layer(WaylandLayer p_layer) {
++	ERR_MAIN_THREAD_GUARD;
++	wayland_layer = p_layer;
++
++	if (window_id != DisplayServer::INVALID_WINDOW_ID && DisplayServer::get_singleton()->has_feature(DisplayServer::FEATURE_WAYLAND_LAYER_SHELL)) {
++		if (!is_in_edited_scene_root()) {
++			DisplayServer::get_singleton()->window_set_wayland_layer(p_layer, window_id);
++		}
++	}
++}
++
++Window::WaylandLayer Window::get_wayland_layer() const {
++	ERR_READ_THREAD_GUARD_V(WAYLAND_LAYER_NORMAL);
++	return wayland_layer;
++}
++
+ bool Window::is_maximize_allowed() const {
+ 	ERR_READ_THREAD_GUARD_V(false);
+ 	if (window_id != DisplayServer::INVALID_WINDOW_ID) {
+@@ -673,6 +689,14 @@ void Window::_make_window() {
+ 	DisplayServer::get_singleton()->window_set_title(displayed_title, window_id);
+ 	DisplayServer::get_singleton()->window_attach_instance_id(get_instance_id(), window_id);
+ 
++	// Apply Wayland layer setting if set
++	if (wayland_layer != WAYLAND_LAYER_NORMAL && DisplayServer::get_singleton()->has_feature(DisplayServer::FEATURE_WAYLAND_LAYER_SHELL)) {
++		if (!is_in_edited_scene_root()) {
++			DisplayServer::get_singleton()->window_set_wayland_layer(wayland_layer, window_id);
++		} else {
++		}
++	}
++
+ 	_update_window_size();
+ 
+ 	if (transient_parent) {
+@@ -3233,6 +3257,9 @@ void Window::_bind_methods() {
+ 	ClassDB::bind_method(D_METHOD("set_flag", "flag", "enabled"), &Window::set_flag);
+ 	ClassDB::bind_method(D_METHOD("get_flag", "flag"), &Window::get_flag);
+ 
++	ClassDB::bind_method(D_METHOD("set_wayland_layer", "layer"), &Window::set_wayland_layer);
++	ClassDB::bind_method(D_METHOD("get_wayland_layer"), &Window::get_wayland_layer);
++
+ 	ClassDB::bind_method(D_METHOD("is_maximize_allowed"), &Window::is_maximize_allowed);
+ 
+ 	ClassDB::bind_method(D_METHOD("request_attention"), &Window::request_attention);
+@@ -3418,6 +3445,7 @@ void Window::_bind_methods() {
+ 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "minimize_disabled"), "set_flag", "get_flag", FLAG_MINIMIZE_DISABLED);
+ 	ADD_PROPERTYI(PropertyInfo(Variant::BOOL, "maximize_disabled"), "set_flag", "get_flag", FLAG_MAXIMIZE_DISABLED);
+ 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "force_native"), "set_force_native", "get_force_native");
++	ADD_PROPERTY(PropertyInfo(Variant::INT, "wayland_layer", PROPERTY_HINT_ENUM, "Normal,Background,Bottom,Top,Overlay"), "set_wayland_layer", "get_wayland_layer");
+ 
+ 	ADD_GROUP("Limits", "");
+ 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2I, "min_size", PROPERTY_HINT_NONE, "suffix:px"), "set_min_size", "get_min_size");
+@@ -3513,6 +3541,12 @@ void Window::_bind_methods() {
+ 	BIND_ENUM_CONSTANT(WINDOW_INITIAL_POSITION_CENTER_SCREEN_WITH_MOUSE_FOCUS);
+ 	BIND_ENUM_CONSTANT(WINDOW_INITIAL_POSITION_CENTER_SCREEN_WITH_KEYBOARD_FOCUS);
+ 
++	BIND_ENUM_CONSTANT(WAYLAND_LAYER_NORMAL);
++	BIND_ENUM_CONSTANT(WAYLAND_LAYER_BACKGROUND);
++	BIND_ENUM_CONSTANT(WAYLAND_LAYER_BOTTOM);
++	BIND_ENUM_CONSTANT(WAYLAND_LAYER_TOP);
++	BIND_ENUM_CONSTANT(WAYLAND_LAYER_OVERLAY);
++
+ 	GDVIRTUAL_BIND(_get_contents_minimum_size);
+ 
+ 	BIND_THEME_ITEM(Theme::DATA_TYPE_STYLEBOX, Window, embedded_border);
+diff --git a/scene/main/window.h b/scene/main/window.h
+index 1e01d37292..6e569c3f88 100644
+--- a/scene/main/window.h
++++ b/scene/main/window.h
+@@ -115,6 +115,14 @@ public:
+ 		WINDOW_INITIAL_POSITION_CENTER_SCREEN_WITH_KEYBOARD_FOCUS,
+ 	};
+ 
++	enum WaylandLayer {
++		WAYLAND_LAYER_NORMAL,
++		WAYLAND_LAYER_BACKGROUND,
++		WAYLAND_LAYER_BOTTOM,
++		WAYLAND_LAYER_TOP,
++		WAYLAND_LAYER_OVERLAY,
++	};
++
+ private:
+ 	DisplayServer::WindowID window_id = DisplayServer::INVALID_WINDOW_ID;
+ 	bool initialized = false;
+@@ -145,6 +153,7 @@ private:
+ 	bool keep_title_visible = false;
+ 
+ 	LayoutDirection layout_dir = LAYOUT_DIRECTION_INHERITED;
++	WaylandLayer wayland_layer = WAYLAND_LAYER_NORMAL;
+ 
+ 	void _update_child_controls();
+ 	void _update_embedded_window();
+@@ -335,6 +344,9 @@ public:
+ 
+ 	bool is_popup() const;
+ 
++	void set_wayland_layer(WaylandLayer p_layer);
++	WaylandLayer get_wayland_layer() const;
++
+ 	bool is_maximize_allowed() const;
+ 
+ 	void request_attention();
+@@ -539,3 +551,4 @@ VARIANT_ENUM_CAST(Window::ContentScaleAspect);
+ VARIANT_ENUM_CAST(Window::ContentScaleStretch);
+ VARIANT_ENUM_CAST(Window::LayoutDirection);
+ VARIANT_ENUM_CAST(Window::WindowInitialPosition);
++VARIANT_ENUM_CAST(Window::WaylandLayer);
+diff --git a/servers/display/display_server.cpp b/servers/display/display_server.cpp
+index cfafce58c6..b038ec89a0 100644
+--- a/servers/display/display_server.cpp
++++ b/servers/display/display_server.cpp
+@@ -1650,6 +1650,7 @@ void DisplayServer::_bind_methods() {
+ 	BIND_ENUM_CONSTANT(FEATURE_NATIVE_HELP);
+ 	BIND_ENUM_CONSTANT(FEATURE_NATIVE_DIALOG_INPUT);
+ 	BIND_ENUM_CONSTANT(FEATURE_NATIVE_DIALOG_FILE);
++	BIND_ENUM_CONSTANT(FEATURE_WAYLAND_LAYER_SHELL);
+ 	BIND_ENUM_CONSTANT(FEATURE_NATIVE_DIALOG_FILE_EXTRA);
+ 	BIND_ENUM_CONSTANT(FEATURE_WINDOW_DRAG);
+ 	BIND_ENUM_CONSTANT(FEATURE_SCREEN_EXCLUDE_FROM_CAPTURE);
+diff --git a/servers/display/display_server.h b/servers/display/display_server.h
+index 4932880672..adee73304d 100644
+--- a/servers/display/display_server.h
++++ b/servers/display/display_server.h
+@@ -169,6 +169,7 @@ public:
+ 		FEATURE_NATIVE_COLOR_PICKER,
+ 		FEATURE_SELF_FITTING_WINDOWS,
+ 		FEATURE_ACCESSIBILITY_SCREEN_READER,
++		FEATURE_WAYLAND_LAYER_SHELL,
+ 	};
+ 
+ 	virtual bool has_feature(Feature p_feature) const = 0;
+@@ -509,6 +510,9 @@ public:
+ 	virtual void window_set_flag(WindowFlags p_flag, bool p_enabled, WindowID p_window = MAIN_WINDOW_ID) = 0;
+ 	virtual bool window_get_flag(WindowFlags p_flag, WindowID p_window = MAIN_WINDOW_ID) const = 0;
+ 
++	virtual void window_set_wayland_layer(int p_layer, WindowID p_window = MAIN_WINDOW_ID) {}
++	virtual int window_get_wayland_layer(WindowID p_window = MAIN_WINDOW_ID) const { return 0; }
++
+ 	virtual void window_request_attention(WindowID p_window = MAIN_WINDOW_ID) = 0;
+ 	virtual void window_move_to_foreground(WindowID p_window = MAIN_WINDOW_ID) = 0;
+ 	virtual bool window_is_focused(WindowID p_window = MAIN_WINDOW_ID) const = 0;
+diff --git a/thirdparty/wayland-protocols/staging/wlr-layer-shell/wlr-layer-shell-unstable-v1.xml b/thirdparty/wayland-protocols/staging/wlr-layer-shell/wlr-layer-shell-unstable-v1.xml
+new file mode 100644
+index 0000000000..6749896296
+--- /dev/null
++++ b/thirdparty/wayland-protocols/staging/wlr-layer-shell/wlr-layer-shell-unstable-v1.xml
+@@ -0,0 +1,358 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<protocol name="wlr_layer_shell_unstable_v1">
++  <copyright>
++    Copyright © 2017 Drew DeVault
++
++    Permission is hereby granted, free of charge, to any person obtaining a
++    copy of this software and associated documentation files (the "Software"),
++    to deal in the Software without restriction, including without limitation
++    the rights to use, copy, modify, merge, publish, distribute, sublicense,
++    and/or sell copies of the Software, and to permit persons to whom the
++    Software is furnished to do so, subject to the following conditions:
++
++    The above copyright notice and this permission notice shall be included in
++    all copies or substantial portions of the Software.
++
++    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
++    THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
++    FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
++    DEALINGS IN THE SOFTWARE.
++  </copyright>
++
++  <interface name="zwlr_layer_shell_v1" version="4">
++    <description summary="create surfaces that are layers of the desktop">
++      Clients can use this interface to assign the surface_layer role to
++      wl_surfaces. Such surfaces are assigned to a "layer" of the output and
++      rendered with a defined z-depth respective to each other. They may also be
++      anchored to the edges and corners of a screen and specify input handling
++      semantics. This interface should be suitable for the implementation of
++      many desktop shell components, and a broad number of other applications
++      that interact with the desktop.
++    </description>
++
++    <request name="get_layer_surface">
++      <description summary="create a layer_surface from a surface">
++        Create a layer surface for an existing surface. This gives the surface
++        the layer_surface role. Attempting to create a layer surface for a
++        surface with another role, or setting the layer_surface role for a
++        surface with an existing role, raises a protocol error.
++
++        When the layer surface is destroyed, the surface is unmapped and the
++        zwlr_layer_surface_v1 object becomes inert.
++
++        The client must commit the surface in order for it to be mapped, or make
++        it as a sub-surface and make its parent surface committed.
++      </description>
++      <arg name="id" type="new_id" interface="zwlr_layer_surface_v1"/>
++      <arg name="surface" type="object" interface="wl_surface"/>
++      <arg name="output" type="object" interface="wl_output" allow-null="true"/>
++      <arg name="layer" type="uint" enum="layer" summary="layer to add this surface to"/>
++      <arg name="name_space" type="string" summary="namespace for the layer surface"/>
++    </request>
++
++    <enum name="layer">
++      <description summary="available layers for surfaces">
++        These values indicate which layers a surface can be rendered in. They
++        are ordered by z depth, bottom-most first. Traditional shell surfaces
++        will typically be rendered between the bottom and top layers.
++        Fullscreen shell surfaces are typically rendered at the top layer.
++        Multiple surfaces can share a single layer, and ordering within a
++        single layer is undefined.
++      </description>
++      <entry name="background" value="0"/>
++      <entry name="bottom" value="1"/>
++      <entry name="top" value="2"/>
++      <entry name="overlay" value="3"/>
++    </enum>
++
++    <enum name="error">
++      <entry name="role" value="0" summary="wl_surface has another role"/>
++      <entry name="invalid_layer" value="1" summary="layer value is invalid"/>
++      <entry name="already_constructed" value="2" summary="wl_surface has a buffer attached or committed"/>
++    </enum>
++  </interface>
++
++  <interface name="zwlr_layer_surface_v1" version="4">
++    <description summary="layer metadata interface">
++      An interface that may be implemented by a wl_surface, for surfaces that
++      are designed to be rendered as a layer of a stacked desktop-like
++      environment.
++
++      Layer surface state (layer, size, anchor, exclusive zone,
++      margin, interactivity) is double-buffered, and will be applied at the
++      time wl_surface.commit of the corresponding wl_surface is called.
++
++      Attaching a null buffer to a layer surface unmaps it.
++
++      Unmapping a layer_surface means that the surface cannot be shown by the
++      compositor until it is explicitly mapped again. The layer_surface
++      returns to the state it had right after layer_shell.get_layer_surface.
++      The client can re-map the surface by performing a commit without any
++      buffer attached, waiting for a configure event and handling it as usual.
++    </description>
++
++    <request name="set_size">
++      <description summary="sets the size of the surface">
++        Sets the size of the surface in surface-local coordinates. The
++        compositor will display the surface centered with respect to its
++        anchors.
++
++        If you pass 0 for either value, the compositor will assign it and
++        inform you of the assignment in the configure event. You must set your
++        anchor to opposite edges in the dimensions you omit; not doing so is a
++        protocol error. Both values are 0 by default.
++
++        Size is double-buffered, see wl_surface.commit.
++      </description>
++      <arg name="width" type="uint"/>
++      <arg name="height" type="uint"/>
++    </request>
++
++    <request name="set_anchor">
++      <description summary="configures the anchor point of the surface">
++        Requests that the compositor anchor the surface to the specified edges
++        and corners. If two orthogonal edges are specified (e.g. 'top' and
++        'left'), then the anchor point will be the intersection of the edges
++        (e.g. the top left corner of the output); otherwise the anchor point
++        will be centered on that edge, or in the center if no edge is
++        specified.
++
++        Anchor is double-buffered, see wl_surface.commit.
++      </description>
++      <arg name="anchor" type="uint" enum="anchor"/>
++    </request>
++
++    <request name="set_exclusive_zone">
++      <description summary="configures the exclusive geometry of this surface">
++        Requests that the compositor avoids occluding an area with other
++        surfaces. The compositor's use of this information is
++        implementation-dependent - do not assume that this region will not
++        actually be occluded.
++
++        A positive value is only meaningful if the surface is anchored to one
++        edge or an edge and both perpendicular edges. If the surface is not
++        anchored, anchored to only two perpendicular edges (a corner), anchored
++        to only two parallel edges or anchored to all four edges, a positive
++        value will be treated the same as zero.
++
++        A positive zone is the distance from the edge in surface-local
++        coordinates to consider exclusive.
++
++        Surfaces that do not wish to have an exclusive zone may set this value
++        to zero. (This is the default.)
++
++        For example, a panel might set its exclusive zone to 10 to request that
++        other surfaces do not get placed within 10 pixels of the panel's edge.
++
++        A negative value requests that the surface be placed within so many
++        pixels of the edge that it is anchored to. For example, setting an
++        exclusive zone of -10 on a surface anchored to the bottom edge would
++        request that the surface be placed such that the bottom 10 pixels of
++        the surface is over the edge of the very bottom of the screen.
++
++        An exclusive zone should not be larger than the width (or height, for
++        top/bottom anchors) of the surface itself.
++
++        The exclusive zone is double-buffered, see wl_surface.commit.
++      </description>
++      <arg name="zone" type="int"/>
++    </request>
++
++    <request name="set_margin">
++      <description summary="sets a margin from the anchor point of the surface">
++        Requests that the surface be placed some distance away from the anchor
++        point on the output, in surface-local coordinates. Setting this value
++        for edges you are not anchored to has no effect.
++
++        The exclusive zone includes the margin.
++
++        Margin is double-buffered, see wl_surface.commit.
++      </description>
++      <arg name="top" type="int"/>
++      <arg name="right" type="int"/>
++      <arg name="bottom" type="int"/>
++      <arg name="left" type="int"/>
++    </request>
++
++    <request name="set_keyboard_interactivity">
++      <description summary="requests keyboard events">
++        Set to 1 to request that the seat send keyboard events to this layer
++        surface. For layers below the shell surface layer, the seat will use
++        normal focus semantics. For layers above the shell surface layers, the
++        seat will always give this layer keyboard focus whenever the layer has
++        any surfaces mapped.
++
++        Layer surfaces receive pointer, touch, and tablet events normally. If
++        you do not want to receive them, set the input region on your surface
++        to an empty region.
++
++        Events is double-buffered, see wl_surface.commit.
++      </description>
++      <arg name="keyboard_interactivity" type="uint" enum="keyboard_interactivity"/>
++    </request>
++
++    <request name="get_popup">
++      <description summary="assign this layer_surface as an xdg_popup parent">
++        This assigns an xdg_popup's parent to this layer_surface.  This popup
++        should have been created via xdg_surface::get_popup with the parent set
++        to NULL, or get_popup_xdg_surface, as appropriate.
++
++        This request must be used in response to some sort of user action like a
++        button press, key press, or touch down event. The serial number of the
++        event should be passed as 'serial'.
++
++        The parent of a pulldown menu is the top-level layer_surface. Subsequent
++        children can be nested arbitrarily deeply.
++
++        This request creates a grab, and must be used in conjunction with the
++        grav ing protocol.
++
++        This request must be destroyed before the layer_surface is destroyed.
++      </description>
++      <arg name="popup" type="object" interface="xdg_popup"/>
++    </request>
++
++    <request name="ack_configure">
++      <description summary="ack a configure event">
++        When a configure event is received, if a client commits the
++        surface in response to the configure event, then the client
++        must make an ack_configure request sometime before the commit
++        request, passing along the serial of the configure event.
++
++        For instance, the compositor might use this information during display
++        configuration to change its coordinate space for set_size requests only if
++        they were made before the client acknowledged the new display configuration.
++
++        If the client receives multiple configure events before it can respond
++        to one, it only has to ack the last configure event. (Because acking a
++        configure event indicates that the client has applied all prior configure
++        events as well.)
++
++        A client is not required to commit immediately after acknowledging
++        a configure event - it may even ack_configure several times before its
++        next surface commit.
++
++        A client may send multiple ack_configure requests before committing, but
++        only the last request sent before a commit indicates which configure
++        event the client really is responding to.
++      </description>
++      <arg name="serial" type="uint" summary="the serial from the configure event"/>
++    </request>
++
++    <request name="destroy" type="destructor">
++      <description summary="destroy the layer_surface">
++        This request destroys the layer surface.
++      </description>
++    </request>
++
++    <event name="configure">
++      <description summary="suggest a surface change">
++        The configure event asks the client to resize its surface or to
++        change its state. The configured state should not be applied
++        immediately. See ack_configure for details.
++
++        The width and height arguments specify the size of the window
++        geometry in surface-local coordinates.
++
++        The size is a hint, in the sense that the client is free to
++        ignore it if it doesn't resize, pick a smaller size (to
++        satisfy aspect ratio or resize in steps of NxM pixels). If the
++        client picks a smaller size and is anchored to two opposite
++        anchors (e.g. 'top' and 'bottom'), the surface will be
++        centered on this axis.
++
++        If the width or height arguments are zero, it means the client
++        should decide its own window dimension.
++      </description>
++      <arg name="serial" type="uint"/>
++      <arg name="width" type="uint"/>
++      <arg name="height" type="uint"/>
++    </event>
++
++    <event name="closed">
++      <description summary="surface should be closed">
++        The closed event is sent by the compositor when the surface is no
++        longer displayed. For instance, this may be sent when a stroke is
++        dismissed, or a panel is turned off.
++
++        If the surface has been destroyed, the closed event is unnecessary and
++        is not sent. The closed event is sent before the destroy notification.
++
++        This is a destructor, once received this object cannot be used further.
++      </description>
++    </event>
++
++    <enum name="keyboard_interactivity">
++      <description summary="types of keyboard interaction possible for layer shell surfaces">
++        Types of keyboard interaction possible for layer shell surfaces. The
++        rationale for this is twofold: (1) some applications are not interested
++        in keyboard events and not allowing them to be focused can improve the
++        desktop experience; (2) some applications will want to take exclusive
++        keyboard focus.
++      </description>
++      <entry name="none" value="0">
++        <description summary="no keyboard focus is possible">
++          This value indicates that this surface is not interested in keyboard
++          events and the compositor should never assign it the keyboard focus.
++
++          This is the default value, set for newly created layer shell surfaces.
++
++          This is useful for e.g. desktop wallpaper or other decorative surfaces
++          that the user is not expected to interact with using the keyboard.
++        </description>
++      </entry>
++      <entry name="exclusive" value="1">
++        <description summary="request exclusive keyboard focus">
++          Request exclusive keyboard focus if this surface is above the shell surface layer.
++
++          For Normal layer surfaces, this gives up the exclusive keyboard focus request.
++          For surfaces in the Top layer, this allows them to receive keyboard input.
++          For surfaces in the Overlay layer, this requests that they receive exclusive
++          keyboard input.
++
++          Using this option can make a layer surface behave like a popup, but layer surfaces
++          are not constrained by the size of a parent surface.
++
++          Typically, the compositor will ignore this request if the layer surface's layer
++          is not above the normal shell surface layer.
++
++          For this type of keyboard interactivity, the focus follows the pointer when
++          there are no layer surfaces with exclusive keyboard interactivity set.
++        </description>
++      </entry>
++      <entry name="on_demand" value="2" since="4">
++        <description summary="request regular keyboard focus semantics">
++          This requests the compositor to allow this surface to be focused and
++          unfocused by the user in an implementation-defined manner. Typically,
++          the user can request focus using the keyboard tab navigation, or by
++          clicking on the layer surface.
++
++          This allows a layer surface to work more like a normal window. The focus
++          may change as the user moves the pointer or navigates with the keyboard.
++
++          This is the recommended option for layer surfaces that need keyboard
++          input, as it integrates well with traditional desktop workflows.
++
++          The compositor is free to decide how to indicate focus for this surface.
++        </description>
++      </entry>
++    </enum>
++
++    <enum name="anchor" bitfield="true">
++      <entry name="top" value="1"/>
++      <entry name="bottom" value="2"/>
++      <entry name="left" value="4"/>
++      <entry name="right" value="8"/>
++    </enum>
++
++    <enum name="error">
++      <entry name="invalid_surface_state" value="0" summary="provided surface state is invalid"/>
++      <entry name="invalid_size" value="1" summary="size is invalid"/>
++      <entry name="invalid_anchor" value="2" summary="anchor bitfield is invalid"/>
++      <entry name="invalid_keyboard_interactivity" value="3" summary="keyboard interactivity is invalid"/>
++    </enum>
++  </interface>
++</protocol>

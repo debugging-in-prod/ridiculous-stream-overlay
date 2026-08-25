@@ -1,0 +1,191 @@
+From afa02577b02b8553ba09e2794fb1f29eb8873aab Mon Sep 17 00:00:00 2001
+From: kevin <neonc0in@proton.me>
+Date: Mon, 24 Aug 2026 20:09:48 -0400
+Subject: [PATCH 2/4] Fix layer-shell crash, add output selection and
+ fullscreen anchoring
+
+Three fixes on top of the ported PR, all found by running it:
+
+- window_create() called zxdg_exporter_v2_export_toplevel() unconditionally. A
+  layer surface holds a different role, so requesting a toplevel handle for one
+  is a protocol violation; cosmic-comp disconnected the client, which surfaced
+  as 'Can't show a GLES3 window' and then a segfault. Guarded on
+  !ws.wlr_layer_surface.
+
+- The layer surface was created with a null wl_output, letting the compositor
+  choose the monitor -- a coin flip with more than one. Added
+  display/window/wayland/layer_screen (-1 = largest output, else an index).
+
+- A surface covering the whole output is now anchored to all four edges with a
+  zero size, so the compositor sizes it to the output, instead of deriving
+  margins from a rect that Godot zeroes for toplevels anyway.
+
+Verified on COSMIC: transparent, click-through and above a fullscreen game.
+---
+ core/config/project_settings.cpp             |  1 +
+ platform/linuxbsd/wayland/wayland_thread.cpp | 93 ++++++++++++++++----
+ 2 files changed, 75 insertions(+), 19 deletions(-)
+
+diff --git a/core/config/project_settings.cpp b/core/config/project_settings.cpp
+index 905212283a..3e947ef4b0 100644
+--- a/core/config/project_settings.cpp
++++ b/core/config/project_settings.cpp
+@@ -1733,6 +1733,7 @@ ProjectSettings::ProjectSettings() {
+ 	GLOBAL_DEF(PropertyInfo(Variant::INT, "display/window/size/window_height_override", PROPERTY_HINT_RANGE, "0,4320,1,or_greater"), 0); // 8K resolution
+ 
+ 	GLOBAL_DEF(PropertyInfo(Variant::INT, "display/window/wayland/layer", PROPERTY_HINT_ENUM, "Normal,Background,Bottom,Top,Overlay"), 0);
++	GLOBAL_DEF(PropertyInfo(Variant::INT, "display/window/wayland/layer_screen", PROPERTY_HINT_RANGE, "-1,8,1"), -1);
+ 
+ 	GLOBAL_DEF("display/window/energy_saving/keep_screen_on", true);
+ 	GLOBAL_DEF("animation/warnings/check_invalid_track_paths", true);
+diff --git a/platform/linuxbsd/wayland/wayland_thread.cpp b/platform/linuxbsd/wayland/wayland_thread.cpp
+index 0d305a30c8..752adfd573 100644
+--- a/platform/linuxbsd/wayland/wayland_thread.cpp
++++ b/platform/linuxbsd/wayland/wayland_thread.cpp
+@@ -31,6 +31,7 @@
+ #include "wayland_thread.h"
+ 
+ #include "core/config/engine.h"
++#include "core/config/project_settings.h"
+ 
+ #ifdef WAYLAND_ENABLED
+ 
+@@ -55,6 +56,13 @@
+ #define wl_array_for_each(pos, array) \
+ 	for (pos = (decltype(pos))(array)->data; (const char *)pos < ((const char *)(array)->data + (array)->size); (pos)++)
+ 
++#define WAYLAND_THREAD_DEBUG_LOGS_ENABLED
++#ifdef WAYLAND_THREAD_DEBUG_LOGS_ENABLED
++#define DEBUG_LOG_WAYLAND_THREAD(...) print_verbose(__VA_ARGS__)
++#else
++#define DEBUG_LOG_WAYLAND_THREAD(...)
++#endif
++
+ // Since we're never going to use this interface directly, it's not worth
+ // generating the whole deal.
+ #define FIFO_INTERFACE_NAME "wp_fifo_manager_v1"
+@@ -146,6 +154,22 @@ WaylandThread::LayerSurfaceConfig WaylandThread::_calculate_layer_surface_config
+ 	int height = p_rect.size.height;
+ 	
+ 	// Calculate distances from each edge
++	// A surface covering the whole output is best expressed by anchoring to all
++	// four edges with a zero size: the compositor then sizes it to the output
++	// itself, which stays correct across resolution and scale changes and avoids
++	// the off-by-a-few-pixels drift the margin maths below is prone to.
++	if (width >= p_output_size.width && height >= p_output_size.height) {
++		config.anchor = ZWLR_LAYER_SURFACE_V1_ANCHOR_LEFT | ZWLR_LAYER_SURFACE_V1_ANCHOR_RIGHT |
++				ZWLR_LAYER_SURFACE_V1_ANCHOR_TOP | ZWLR_LAYER_SURFACE_V1_ANCHOR_BOTTOM;
++		config.margin_top = 0;
++		config.margin_right = 0;
++		config.margin_bottom = 0;
++		config.margin_left = 0;
++		config.width = 0;
++		config.height = 0;
++		return config;
++	}
++
+ 	int dist_left = x;
+ 	int dist_right = p_output_size.width - (x + width);
+ 	int dist_top = y;
+@@ -1938,6 +1962,8 @@ void WaylandThread::_wl_pointer_on_leave(void *data, struct wl_pointer *wl_point
+ 		return;
+ 	}
+ 
++	DisplayServer::WindowID id = pd.pointed_id;
++
+ 	pd.pointed_id = DisplayServer::INVALID_WINDOW_ID;
+ 	pd.pressed_button_mask.clear();
+ 
+@@ -3977,11 +4003,46 @@ void WaylandThread::window_create(DisplayServer::WindowID p_window_id, const Siz
+ 				break;
+ 		}
+ 		
++		// Pick which output the overlay lives on. Passing null lets the compositor
++		// choose, which is a coin flip on a multi-monitor setup. `layer_screen` is
++		// an index into the output list; -1 (the default) picks the largest, which
++		// is normally the one being played on.
++		Size2i output_size = Size2i(1920, 1080); // Fallback if no output reports geometry.
++		struct wl_output *target_output = nullptr;
++		int layer_screen = GLOBAL_GET("display/window/wayland/layer_screen");
++
++		int index = 0;
++		int best_area = -1;
++		for (struct wl_output *output : registry.wl_outputs) {
++			ScreenState *screen_state = wl_output_get_screen_state(output);
++			if (!screen_state) {
++				index++;
++				continue;
++			}
++			Size2i size = screen_state->data.size;
++
++			if (layer_screen >= 0) {
++				if (index == layer_screen) {
++					target_output = output;
++					output_size = size;
++					break;
++				}
++			} else {
++				int area = size.width * size.height;
++				if (area > best_area) {
++					best_area = area;
++					target_output = output;
++					output_size = size;
++				}
++			}
++			index++;
++		}
++
+ 		// Create layer shell surface
+ 		ws.wlr_layer_surface = zwlr_layer_shell_v1_get_layer_surface(
+ 			registry.wlr_layer_shell,
+ 			ws.wl_surface,
+-			nullptr, // output (null means all outputs)
++			target_output, // null only if no output reported geometry
+ 			protocol_layer, // layer enum
+ 			"godot" // namespace
+ 		);
+@@ -3989,19 +4050,8 @@ void WaylandThread::window_create(DisplayServer::WindowID p_window_id, const Siz
+ 		zwlr_layer_surface_v1_add_listener(ws.wlr_layer_surface, &wlr_layer_surface_listener, &ws);
+ 		
+ 		// Calculate anchor and margins from Godot's position and size
+-		Size2i output_size = Size2i(1920, 1080); // Default fallback size
+-		
+-		// Try to get the actual output size from the first available output
+-		if (!registry.wl_outputs.is_empty()) {
+-			struct wl_output *first_output = registry.wl_outputs.front()->get();
+-			ScreenState *screen_state = wl_output_get_screen_state(first_output);
+-			if (screen_state) {
+-				output_size = screen_state->data.size;
+-			}
+-		}
+-		
+ 		// Use the window's rect for anchor/margin calculation
+-		Rect2i window_rect = Rect2i(ws.rect.position, Size2i(p_width, p_height));
++		Rect2i window_rect = Rect2i(ws.rect.position, p_size);
+ 		LayerSurfaceConfig config = _calculate_layer_surface_config(window_rect, output_size);
+ 		
+ 		// Apply the calculated configuration
+@@ -4062,12 +4112,17 @@ void WaylandThread::window_create(DisplayServer::WindowID p_window_id, const Siz
+ 	ws.frame_callback = wl_surface_frame(ws.wl_surface);
+ 	wl_callback_add_listener(ws.frame_callback, &frame_wl_callback_listener, &ws);
+ 
+-	if (registry.xdg_exporter_v2) {
+-		ws.xdg_exported_v2 = zxdg_exporter_v2_export_toplevel(registry.xdg_exporter_v2, ws.wl_surface);
+-		zxdg_exported_v2_add_listener(ws.xdg_exported_v2, &xdg_exported_v2_listener, &ws);
+-	} else if (registry.xdg_exporter_v1) {
+-		ws.xdg_exported_v1 = zxdg_exporter_v1_export(registry.xdg_exporter_v1, ws.wl_surface);
+-		zxdg_exported_v1_add_listener(ws.xdg_exported_v1, &xdg_exported_v1_listener, &ws);
++	// Only xdg_toplevel surfaces can be exported. A layer surface holds a
++	// different role, and asking the exporter for a toplevel handle on one is a
++	// protocol violation that gets the client disconnected.
++	if (!ws.wlr_layer_surface) {
++		if (registry.xdg_exporter_v2) {
++			ws.xdg_exported_v2 = zxdg_exporter_v2_export_toplevel(registry.xdg_exporter_v2, ws.wl_surface);
++			zxdg_exported_v2_add_listener(ws.xdg_exported_v2, &xdg_exported_v2_listener, &ws);
++		} else if (registry.xdg_exporter_v1) {
++			ws.xdg_exported_v1 = zxdg_exporter_v1_export(registry.xdg_exporter_v1, ws.wl_surface);
++			zxdg_exported_v1_add_listener(ws.xdg_exported_v1, &xdg_exported_v1_listener, &ws);
++		}
+ 	}
+ 
+ 	wl_surface_commit(ws.wl_surface);

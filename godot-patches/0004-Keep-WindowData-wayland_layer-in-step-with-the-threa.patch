@@ -1,0 +1,152 @@
+From e61c05a5a31108c7e9c6d45329041aa54646e78a Mon Sep 17 00:00:00 2001
+From: kevin <neonc0in@proton.me>
+Date: Mon, 24 Aug 2026 20:46:29 -0400
+Subject: [PATCH 4/4] Keep WindowData::wayland_layer in step with the thread
+ side
+
+The project-setting path set only the WaylandThread's ws.wayland_layer, never
+the display server's WindowData copy, which is what window_set_size() and
+window_set_position() branch on. Both therefore took the xdg-toplevel path and
+did nothing to a layer surface: the window stayed at whatever size it was
+created with, the compositor was never asked to re-anchor, and only a single
+configure event ever arrived.
+
+With this set, resizing re-anchors to all four edges and the compositor replies
+with the output size minus exclusive zones (3440x1408 here, the 32px being the
+COSMIC panel), which the configure handler adopts.
+---
+ .../wayland/display_server_wayland.cpp        | 19 +++++++++++++++-
+ .../linuxbsd/wayland/display_server_wayland.h |  1 +
+ platform/linuxbsd/wayland/wayland_thread.cpp  | 22 +++++++++++++++++++
+ platform/linuxbsd/wayland/wayland_thread.h    |  1 +
+ servers/display/display_server.cpp            |  1 +
+ servers/display/display_server.h              |  9 ++++++++
+ 6 files changed, 52 insertions(+), 1 deletion(-)
+
+diff --git a/platform/linuxbsd/wayland/display_server_wayland.cpp b/platform/linuxbsd/wayland/display_server_wayland.cpp
+index 4da0d53ce0..57d8749bb6 100644
+--- a/platform/linuxbsd/wayland/display_server_wayland.cpp
++++ b/platform/linuxbsd/wayland/display_server_wayland.cpp
+@@ -790,8 +790,13 @@ void DisplayServerWayland::show_window(WindowID p_window_id) {
+ 			// track them and we're gonna get our events transformed in unexpected ways.
+ 			wd.rect.position = Point2i();
+ 
+-			// Set Wayland layer for main window before creating it
++			// Set Wayland layer for main window before creating it.
++			// NOTE: WindowData::wayland_layer must be kept in step with the thread
++			// side, otherwise window_set_size() and window_set_position() take the
++			// xdg-toplevel branch and silently do nothing to a layer surface -- the
++			// window then never leaves the size it was created at.
+ 			if (p_window_id == MAIN_WINDOW_ID && main_window_wayland_layer != 0) {
++				wd.wayland_layer = main_window_wayland_layer;
+ 				wayland_thread.window_set_wayland_layer(p_window_id, main_window_wayland_layer);
+ 			}
+ 
+@@ -1049,6 +1054,18 @@ void DisplayServerWayland::window_set_mouse_passthrough(const Vector<Vector2> &p
+ 	wayland_thread.window_set_mouse_passthrough(p_window_id, p_region);
+ }
+ 
++void DisplayServerWayland::window_set_mouse_passthrough_regions(const TypedArray<Rect2i> &p_regions, DisplayServer::WindowID p_window_id) {
++	MutexLock mutex_lock(wayland_thread.mutex);
++
++	Vector<Rect2i> regions;
++	regions.resize(p_regions.size());
++	for (int i = 0; i < p_regions.size(); i++) {
++		regions.write[i] = p_regions[i];
++	}
++
++	wayland_thread.window_set_input_regions(p_window_id, regions);
++}
++
+ void DisplayServerWayland::window_set_rect_changed_callback(const Callable &p_callable, DisplayServer::WindowID p_window_id) {
+ 	MutexLock mutex_lock(wayland_thread.mutex);
+ 
+diff --git a/platform/linuxbsd/wayland/display_server_wayland.h b/platform/linuxbsd/wayland/display_server_wayland.h
+index b8a20da67e..ed2f613279 100644
+--- a/platform/linuxbsd/wayland/display_server_wayland.h
++++ b/platform/linuxbsd/wayland/display_server_wayland.h
+@@ -265,6 +265,7 @@ public:
+ 
+ 	virtual void window_set_title(const String &p_title, WindowID p_window_id = MAIN_WINDOW_ID) override;
+ 	virtual void window_set_mouse_passthrough(const Vector<Vector2> &p_region, WindowID p_window_id = MAIN_WINDOW_ID) override;
++	virtual void window_set_mouse_passthrough_regions(const TypedArray<Rect2i> &p_regions, WindowID p_window_id = MAIN_WINDOW_ID) override;
+ 
+ 	virtual void window_set_rect_changed_callback(const Callable &p_callable, WindowID p_window_id = MAIN_WINDOW_ID) override;
+ 	virtual void window_set_window_event_callback(const Callable &p_callable, WindowID p_window_id = MAIN_WINDOW_ID) override;
+diff --git a/platform/linuxbsd/wayland/wayland_thread.cpp b/platform/linuxbsd/wayland/wayland_thread.cpp
+index 1ec3839069..71d69aae3d 100644
+--- a/platform/linuxbsd/wayland/wayland_thread.cpp
++++ b/platform/linuxbsd/wayland/wayland_thread.cpp
+@@ -4863,6 +4863,28 @@ bool WaylandThread::window_get_idle_inhibition(DisplayServer::WindowID p_window_
+ 	return ws.wp_idle_inhibitor != nullptr;
+ }
+ 
++void WaylandThread::window_set_input_regions(DisplayServer::WindowID p_window_id, const Vector<Rect2i> &p_regions) {
++	ERR_FAIL_COND(!windows.has(p_window_id));
++	WindowState &ws = windows[p_window_id];
++	ERR_FAIL_NULL(ws.wl_surface);
++
++	// An empty region accepts no pointer input at all, so the whole surface is
++	// transparent to clicks. Adding rectangles carves out the parts that stay
++	// interactive.
++	struct wl_region *input_region = wl_compositor_create_region(registry.wl_compositor);
++	for (const Rect2i &rect : p_regions) {
++		if (rect.size.width <= 0 || rect.size.height <= 0) {
++			continue;
++		}
++		wl_region_add(input_region, rect.position.x, rect.position.y, rect.size.width, rect.size.height);
++	}
++
++	wl_surface_set_input_region(ws.wl_surface, input_region);
++	wl_region_destroy(input_region);
++
++	wl_surface_commit(ws.wl_surface);
++}
++
+ void WaylandThread::window_set_mouse_passthrough(DisplayServer::WindowID p_window_id, const Vector<Vector2> &p_region) {
+ 	ERR_FAIL_COND(!windows.has(p_window_id));
+ 	WindowState &ws = windows[p_window_id];
+diff --git a/platform/linuxbsd/wayland/wayland_thread.h b/platform/linuxbsd/wayland/wayland_thread.h
+index d8430f3ef3..c355fc051a 100644
+--- a/platform/linuxbsd/wayland/wayland_thread.h
++++ b/platform/linuxbsd/wayland/wayland_thread.h
+@@ -1185,6 +1185,7 @@ public:
+ 
+ 	// Mouse passthrough for transparent overlays
+ 	void window_set_mouse_passthrough(DisplayServer::WindowID p_window_id, const Vector<Vector2> &p_region);
++	void window_set_input_regions(DisplayServer::WindowID p_window_id, const Vector<Rect2i> &p_regions);
+ 
+ 	ScreenData screen_get_data(int p_screen) const;
+ 	int get_screen_count() const;
+diff --git a/servers/display/display_server.cpp b/servers/display/display_server.cpp
+index b038ec89a0..872ec2cf29 100644
+--- a/servers/display/display_server.cpp
++++ b/servers/display/display_server.cpp
+@@ -1419,6 +1419,7 @@ void DisplayServer::_bind_methods() {
+ 	ClassDB::bind_method(D_METHOD("window_set_title", "title", "window_id"), &DisplayServer::window_set_title, DEFVAL(MAIN_WINDOW_ID));
+ 	ClassDB::bind_method(D_METHOD("window_get_title_size", "title", "window_id"), &DisplayServer::window_get_title_size, DEFVAL(MAIN_WINDOW_ID));
+ 	ClassDB::bind_method(D_METHOD("window_set_mouse_passthrough", "region", "window_id"), &DisplayServer::window_set_mouse_passthrough, DEFVAL(MAIN_WINDOW_ID));
++	ClassDB::bind_method(D_METHOD("window_set_mouse_passthrough_regions", "regions", "window_id"), &DisplayServer::window_set_mouse_passthrough_regions, DEFVAL(MAIN_WINDOW_ID));
+ 
+ 	ClassDB::bind_method(D_METHOD("window_get_current_screen", "window_id"), &DisplayServer::window_get_current_screen, DEFVAL(MAIN_WINDOW_ID));
+ 	ClassDB::bind_method(D_METHOD("window_set_current_screen", "screen", "window_id"), &DisplayServer::window_set_current_screen, DEFVAL(MAIN_WINDOW_ID));
+diff --git a/servers/display/display_server.h b/servers/display/display_server.h
+index adee73304d..709c7f22ca 100644
+--- a/servers/display/display_server.h
++++ b/servers/display/display_server.h
+@@ -474,6 +474,15 @@ public:
+ 
+ 	virtual void window_set_mouse_passthrough(const Vector<Vector2> &p_region, WindowID p_window = MAIN_WINDOW_ID);
+ 
++	// Declares the areas of the window that accept pointer input; everything
++	// outside them passes through to whatever is behind. Unlike
++	// window_set_mouse_passthrough() this takes disjoint rectangles, which is what
++	// Wayland's wl_surface.set_input_region actually models, and it does not
++	// require the client to know where the pointer is -- something a Wayland
++	// client cannot ask for once its surface stops receiving pointer events.
++	// An empty array makes the whole window pass through.
++	virtual void window_set_mouse_passthrough_regions(const TypedArray<Rect2i> &p_regions, WindowID p_window = MAIN_WINDOW_ID) {}
++
+ 	virtual int window_get_current_screen(WindowID p_window = MAIN_WINDOW_ID) const = 0;
+ 	virtual void window_set_current_screen(int p_screen, WindowID p_window = MAIN_WINDOW_ID) = 0;
+ 
