@@ -79,25 +79,25 @@ func start() -> void:
 		#if child.has_method("start"):
 			#child.start()
 #
-	#show()
+	show()
 #
 #
-#func should_show() -> bool:
-	#if !RS.settings:
-		#_log.i("Welcome showing: no RS.settings defined")
-		#return true
+func should_show() -> bool:
+	if !RS.settings:
+		_log.i("Welcome showing: no RS.settings defined")
+		return true
 	#if !_all_forms_completed:
 		#_log.i("Welcome showing: not all form completed")
 		#return true
-	#if RS.settings.welcome_display_always:
-		#_log.i("Welcome showing: default always launch welcome")
-		#return true
-	#var project_version := RSVersion.parse(ProjectSettings.get_setting("application/config/version"))
-	#var welcome_version := RSVersion.parse(RS.settings.welcome_version)
-	#var is_newer_version := welcome_version.compare_to(project_version) < 0
-	#if is_newer_version:
-		#_log.i("Welcome showing: is newer version")
-	#return is_newer_version
+	if RS.settings.welcome_display_always:
+		_log.i("Welcome showing: default always launch welcome")
+		return true
+	var project_version := RSVersion.parse(ProjectSettings.get_setting("application/config/version"))
+	var welcome_version := RSVersion.parse(RS.settings.welcome_version)
+	var is_newer_version := welcome_version.compare_to(project_version) < 0
+	if is_newer_version:
+		_log.i("Welcome showing: is newer version")
+	return is_newer_version
 #
 #
 #func _on_panel_form_container_completion_changed(p_panel_form_container: PanelFormContainer, p_completed: bool) -> void:
@@ -112,29 +112,29 @@ func start() -> void:
 		#%btn_next.disabled = !p_completed
 #
 #
-#func _on_tabs_welcome_tab_changed(tab: int) -> void:
-	#%btn_prev.disabled = tab < 1
-	#if %tabs_welcome.current_tab + 1 < %tabs_welcome.get_tab_count():
-		#%btn_next.icon = preload("res://ui/icons/bootstrap_icons/arrow-right.png")
-	#else:
-		#%btn_next.icon = preload("res://ui/icons/bootstrap_icons/check2.png")
-#
-#
-#func _on_btn_prev_pressed() -> void:
-	#%tabs_welcome.current_tab = max(%tabs_welcome.current_tab - 1, 0)
-#
-#
-#func _on_btn_next_pressed() -> void:
-	#if %tabs_welcome.current_tab + 1 < %tabs_welcome.get_tab_count():
-		#%tabs_welcome.current_tab = min(%tabs_welcome.current_tab + 1, %tabs_welcome.get_tab_count())
-	#else:
+func _on_tabs_welcome_tab_changed(tab: int) -> void:
+	%btn_prev.disabled = tab < 1
+	if %tabs_welcome.current_tab + 1 < %tabs_welcome.get_tab_count():
+		%btn_next.icon = preload("res://ui/icons/bootstrap_icons/arrow-right.png")
+	else:
+		%btn_next.icon = preload("res://ui/icons/bootstrap_icons/check2.png")
+
+
+func _on_btn_prev_pressed() -> void:
+	%tabs_welcome.current_tab = max(%tabs_welcome.current_tab - 1, 0)
+
+
+func _on_btn_next_pressed() -> void:
+	if %tabs_welcome.current_tab + 1 < %tabs_welcome.get_tab_count():
+		%tabs_welcome.current_tab = min(%tabs_welcome.current_tab + 1, %tabs_welcome.get_tab_count())
+	else:
 		#for child in %tabs_welcome.get_children():
 			#if child is PanelFormContainer:
 				#var form_container := child as PanelFormContainer
 				#form_container._presubmit(settings)
 #
-		#RS.settings = settings
-		#completed.emit()
+		RS.settings = settings
+		completed.emit()
 #
 #
 #func _on_scopes_changed(p_scope_aggregator: ScopeAggregator) -> void:

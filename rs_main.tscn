@@ -1,4 +1,4 @@
-[gd_scene load_steps=82 format=3 uid="uid://d345j5een73bf"]
+[gd_scene load_steps=83 format=3 uid="uid://d345j5een73bf"]
 
 [ext_resource type="Theme" uid="uid://d1rxorbgvgyer" path="res://ui/ridiculous_stream_main.theme" id="1_1q0ot"]
 [ext_resource type="Script" uid="uid://brw4mp8qnlxxh" path="res://RSMain.gd" id="1_y2jdm"]
@@ -45,6 +45,7 @@
 [ext_resource type="PackedScene" uid="uid://dduocy5paeeuu" path="res://instances/pnl_summary.tscn" id="25_ht5xl"]
 [ext_resource type="Script" uid="uid://dcq1bvfrqimqq" path="res://addons/twitcher/chat/twitch_chat.gd" id="25_stwwt"]
 [ext_resource type="Script" uid="uid://ch0rxi1ogjx3q" path="res://addons/twitcher/chat/twitch_command_help.gd" id="26_t7nc8"]
+[ext_resource type="PackedScene" uid="uid://cokv6nhefofwl" path="res://instances/welcome/pnl_welcome.tscn" id="19_3rcuc"]
 
 [sub_resource type="Resource" id="Resource_7gvem"]
 script = ExtResource("10_1ry14")
@@ -615,6 +616,12 @@ size_flags_horizontal = 3
 size_flags_vertical = 3
 size_flags_stretch_ratio = 0.25
 theme = null
+
+[node name="pnl_welcome" parent="." instance=ExtResource("19_3rcuc")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+metadata/_edit_lock_ = true
 
 [node name="pnl_summary" parent="." instance=ExtResource("25_ht5xl")]
 unique_name_in_owner = true
