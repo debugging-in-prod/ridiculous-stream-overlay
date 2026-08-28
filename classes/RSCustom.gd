@@ -20,66 +20,32 @@ func start():
 
 
 func add_commands() -> void:
-	var cmd_wishlist: TwitchCommand = RS.twitcher.add_command("wishlist", wishlist)
-	cmd_wishlist.description = "Check out our game on steam! Typing Tower Defence Game: A Few of US: Operation Nightshade."
-	var cmd_steam: TwitchCommand = RS.twitcher.add_command("steam", steam)
-	cmd_steam.description = "Check out my steam page."
-	var cmd_itch: TwitchCommand = RS.twitcher.add_command("itch", itch)
-	cmd_itch.description = "Check out my itch page."
-	var cmd_add_me: TwitchCommand = RS.twitcher.add_command("add_me", RS.user_mng._on_user_request_add)
-	cmd_add_me.description = "Adds you to the known users of the Ridiculous Stream."
-	var cmd_discord: TwitchCommand = RS.twitcher.add_command("discord", discord)
-	cmd_discord.description = "Get an invite to the best discord server ever, with so many channels!"
-	var cmd_c_source: TwitchCommand = RS.twitcher.add_command("c_source", c_source)
-	cmd_c_source.description = "Get a link to Finisfine voice acting master class."
-	var cmd_jam: TwitchCommand = RS.twitcher.add_command("jam", jam)
-	cmd_jam.description = "Doing the Jern Jam 2025, get link and info."
-	var cmd_commands: TwitchCommand = RS.twitcher.add_command("commands", chat_commands_help)
-	cmd_commands.description = "This need to be updated, it's not correct. Don't trust it!"
-	var cmd_pandano: TwitchCommand = RS.twitcher.add_command("pandano", pandano)
-	cmd_pandano.description = "Complain about pandacoder with our truly Jern!"
-	var cmd_whostream: TwitchCommand = RS.twitcher.add_command("whostream", whostream)
-	cmd_whostream.description = "Shows who, in the known users, is streaming at the moment."
-	var cmd_b: TwitchCommand = RS.twitcher.add_command("b", spawn_fake_beans, 0, 1)
-	cmd_b.description = "Those beans are fake!"
-	var cmd_d: TwitchCommand = RS.twitcher.add_command("d", play_discord_notification)
-	cmd_d.description = "Plays a discord notification."
-	var cmd_n: TwitchCommand = RS.twitcher.add_command("n", add_name_to_scene)
-	cmd_n.description = "Add your smol name to the stream."
-	var cmd_shake: TwitchCommand = RS.twitcher.add_command("shake", shake_bodies)
-	cmd_shake.description = "These beans on stream need shaking!"
-	var cmd_quack: TwitchCommand = RS.twitcher.add_command("quack", RS.play_sfx.bind("quack"))
-	cmd_quack.description = "Quack!"
-	var cmd_toggle_music: TwitchCommand = RS.twitcher.add_command("toggle_music", toggle_music)
-	cmd_toggle_music.description = "Vex667 can toggle the music on stream. You too!"
-	var cmd_mika: TwitchCommand = RS.twitcher.add_command("mika", play_mika_system_of_a_down)
-	cmd_mika.description = "System of a down is like... by Mika_Shiyu"
-	var cmd_scawy: TwitchCommand = RS.twitcher.add_command("scawy", play_scawy_dunkaccino)
-	cmd_scawy.description = "What's my name? Scawy Pastry!"
-	var cmd_irad: TwitchCommand = RS.twitcher.add_command("irad", play_irad_being_irad)
-	cmd_irad.description = "How it is to be like the streamer?"
-	var cmd_beginning: TwitchCommand = RS.twitcher.add_command("beginning", play_beginning)
-	cmd_beginning.description = "Plays \"In the beginning\"."
-	var cmd_yippee: TwitchCommand = RS.twitcher.add_command("yippee", play_yippee)
-	cmd_yippee.description = "Plays \"Yippee!\"."
-	var cmd_snow: TwitchCommand = RS.twitcher.add_command("snow", let_it_snow)
-	cmd_snow.description = "Manadono has snow on stream, we have our snow at home!"
-	var cmd_laser: TwitchCommand = RS.twitcher.add_command("laser", laser, 0, 1)
-	cmd_laser.description = "Laseeeeeeerrsss!"
-	var cmd_nuke: TwitchCommand = RS.twitcher.add_command("nuke", nuke)
-	cmd_nuke.description = "Too many beans, too many..."
-	var cmd_zero_g: TwitchCommand = RS.twitcher.add_command("zeroG", zero_g)
-	cmd_zero_g.description = "Beans in space!"
-	var cmd_g: TwitchCommand = RS.twitcher.add_command("g", spawn_grenade, 0, 1)
-	cmd_g.description = "Spawn grenades on stream"
-	
-	cmd_g.add_alias("grenade")
-	cmd_g.add_alias("granade")
-	cmd_g.add_alias("grandma")
-	cmd_g.add_alias("grenades")
-	cmd_zero_g.add_alias("zerog")
-	cmd_zero_g.add_alias("0g")
-	cmd_zero_g.add_alias("0G")
+	_cmd("wishlist", wishlist, "Check out our game on steam! Typing Tower Defence Game: A Few of US: Operation Nightshade.")
+	_cmd("steam", steam, "Check out my steam page.")
+	_cmd("itch", itch, "Check out my itch page.")
+	_cmd("add_me", RS.user_mng._on_user_request_add, "Adds you to the known users of the Ridiculous Stream.")
+	_cmd("discord", discord, "Get an invite to the best discord server ever, with so many channels!")
+	_cmd("c_source", c_source, "Get a link to Finisfine voice acting master class.")
+	_cmd("jam", jam, "Doing the Jern Jam 2025, get link and info.")
+	_cmd("commands", chat_commands_help, "This need to be updated, it's not correct. Don't trust it!")
+	_cmd("pandano", pandano, "Complain about pandacoder with our truly Jern!")
+	_cmd("whostream", whostream, "Shows who, in the known users, is streaming at the moment.")
+	_cmd("b", spawn_fake_beans, "Those beans are fake!", 0, 1)
+	_cmd("d", play_discord_notification, "Plays a discord notification.")
+	_cmd("n", add_name_to_scene, "Add your smol name to the stream.")
+	_cmd("shake", shake_bodies, "These beans on stream need shaking!")
+	_cmd("quack", RS.play_sfx.bind("quack"), "Quack!")
+	_cmd("toggle_music", toggle_music, "Vex667 can toggle the music on stream. You too!")
+	_cmd("mika", play_mika_system_of_a_down, "System of a down is like... by Mika_Shiyu")
+	_cmd("scawy", play_scawy_dunkaccino, "What's my name? Scawy Pastry!")
+	_cmd("irad", play_irad_being_irad, "How it is to be like the streamer?")
+	_cmd("beginning", play_beginning, "Plays \"In the beginning\".")
+	_cmd("yippee", play_yippee, "Plays \"Yippee!\".")
+	_cmd("snow", let_it_snow, "Manadono has snow on stream, we have our snow at home!")
+	_cmd("laser", laser, "Laseeeeeeerrsss!", 0, 1)
+	_cmd("nuke", nuke, "Too many beans, too many...")
+	_cmd("zeroG", zero_g, "Beans in space!", 0, -1, ["zerog", "0g", "0G"])
+	_cmd("g", spawn_grenade, "Spawn grenades on stream", 0, 1, ["grenade", "granade", "grandma", "grenades"])
 	#RS.twitcher.add_command("tts", parse_tts_command, 1, 256)
 	#RS.twitcher.add_command("tts_gb", parse_tts_command.bind("en_GB"), 1, 256)
 	#RS.twitcher.add_command("tts_us", parse_tts_command.bind("en_US"), 1, 256)
@@ -90,6 +56,20 @@ func add_commands() -> void:
 	#RS.twitcher.add_command("tts_pl", parse_tts_command.bind("pl_PL"), 1, 256)
 	#RS.twitcher.add_command("tts_ru", parse_tts_command.bind("ru_RU"), 1, 256)
 	_log.i("Command added to the handler.")
+
+
+func _cmd(
+		cmd_name: String,
+		callback: Callable,
+		description: String,
+		args_min: int = 0,
+		args_max: int = -1,
+		aliases: Array[String] = []
+	) -> void:
+	var cmd: TwitchCommand = RS.twitcher.add_command(cmd_name, callback, args_min, args_max)
+	cmd.description = description
+	for alias in aliases:
+		cmd.add_alias(alias)
 
 
 func on_chat(t_message: TwitchChatMessage) -> void:
