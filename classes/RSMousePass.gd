@@ -39,7 +39,11 @@ var _last_regions: Array[Rect2i] = []
 ##   typing works -> the per-frame region rebuild was breaking keyboard focus
 ##   typing fails -> the layer surface never gets keyboard focus at all, since
 ##                   nothing calls zwlr_layer_surface_v1.set_keyboard_interactivity
-const PIN_INPUT_REGION_TO_WINDOW := true
+##
+## Left off so click-through works normally. Flip to true only to re-run the
+## comparison; a pinned run logged 0 pushes per 300 frames once the window
+## settled, against whatever the normal path reports.
+const PIN_INPUT_REGION_TO_WINDOW := false
 
 ## Pushes are counted and logged so the churn can be compared between modes.
 const _APPLY_LOG_INTERVAL_FRAMES := 300
