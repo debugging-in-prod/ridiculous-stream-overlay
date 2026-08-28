@@ -29,6 +29,23 @@ var _use_input_regions := false
 var _click_through := true
 var _last_regions: Array[Rect2i] = []
 
+## EXPERIMENT (branch experiment/input-region-churn) -- revert before merging.
+##
+## Pins the input region to the whole window instead of tracking the UI rects,
+## so the compositor sees a single wl_surface_set_input_region instead of one
+## per frame. Clicks stop passing through to the desktop while this is on.
+##
+## It exists to tell two candidate causes of unfocusable text boxes apart:
+##   typing works -> the per-frame region rebuild was breaking keyboard focus
+##   typing fails -> the layer surface never gets keyboard focus at all, since
+##                   nothing calls zwlr_layer_surface_v1.set_keyboard_interactivity
+const PIN_INPUT_REGION_TO_WINDOW := true
+
+## Pushes are counted and logged so the churn can be compared between modes.
+const _APPLY_LOG_INTERVAL_FRAMES := 300
+var _applies_since_log := 0
+var _frames_since_log := 0
+
 
 func _ready() -> void:
 	supported = RSDisplay.supports_desktop_overlay()
@@ -38,6 +55,8 @@ func _ready() -> void:
 		_log.i("click-through is not available on the %s display server; running as an ordinary window" % DisplayServer.get_name())
 	elif _use_input_regions:
 		_log.i("using Wayland input regions for click-through")
+		if PIN_INPUT_REGION_TO_WINDOW:
+			_log.w("EXPERIMENT: input region pinned to the whole window, clicks will not pass through")
 	set_process(_use_input_regions)
 
 
@@ -56,10 +75,18 @@ func SetClickThrough(clickthrough: bool) -> void:
 func _process(_delta: float) -> void:
 	_apply_input_regions()
 
+	_frames_since_log += 1
+	if _frames_since_log >= _APPLY_LOG_INTERVAL_FRAMES:
+		_log.i("input region pushed %d times in the last %d frames" % [_applies_since_log, _frames_since_log])
+		_applies_since_log = 0
+		_frames_since_log = 0
+
 
 func _apply_input_regions() -> void:
 	var regions: Array[Rect2i] = []
-	if _click_through:
+	if PIN_INPUT_REGION_TO_WINDOW:
+		regions.append(Rect2i(Vector2i.ZERO, get_window().size))
+	elif _click_through:
 		regions = _collect_ui_rects()
 	else:
 		# Tracker asked for the whole window to be interactive.
@@ -68,6 +95,7 @@ func _apply_input_regions() -> void:
 	if regions == _last_regions:
 		return
 	_last_regions = regions
+	_applies_since_log += 1
 	DisplayServer.window_set_mouse_passthrough_regions(regions)
 
 
