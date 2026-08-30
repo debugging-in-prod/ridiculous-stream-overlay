@@ -95,6 +95,13 @@ const RS_SFX_FOLDER = "sfx/"
 @export var obs_websocket_port : int
 @export var obs_websocket_password : String
 
+# Nivek overlay relay (durable cheer feed). Leave blank to keep cheers on the
+# direct-Twitch path. When both are set, RSNivekRelay becomes the cheer source.
+# url e.g. "wss://peanutbudderbot.com/api/overlay/connect"; token is a device
+# token minted from the nivek dashboard for this broadcaster.
+@export var nivek_relay_url: String = "wss://peanutbudderbot.com/api/overlay/connect"
+@export var nivek_device_token: String = ""
+
 # Twitcher settings
 @export var broadcaster_id: String
 @export var broadcaster_name: String

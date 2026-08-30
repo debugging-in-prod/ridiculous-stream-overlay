@@ -14,7 +14,8 @@ func start():
 	RS.twitcher.followed.connect(on_followed)
 	RS.twitcher.raided.connect(on_raided)
 	RS.twitcher.subscribed.connect(on_subscribed)
-	RS.twitcher.cheered.connect(on_cheered)
+	# Cheers come from the nivek relay when configured, else direct from Twitch.
+	RS.cheer_source().cheered.connect(on_cheered)
 	RS.twitcher.connected_to_twitch.connect(add_commands)
 	RS.twitcher.first_session_message.connect(on_first_session_message)
 
@@ -136,8 +137,16 @@ func on_raided(data: RSTwitchEventData):
 	destructibles_names(raider_username, data.viewers)
 func on_subscribed(_data: RSTwitchEventData):
 	pass
-func on_cheered(_data: RSTwitchEventData):
-	pass
+func on_cheered(data: RSTwitchEventData):
+	var who := data.display_name if not data.display_name.is_empty() else data.username
+	_log.i("Cheer: %d bits from %s (anon=%s)" % [data.bits, who, data.is_anonymous])
+	# Starter reaction so a cheer visibly does something on the overlay. Spawns the
+	# cheerer's name as physics text, roughly scaled by bits. TODO(kevin): art-direct
+	# this into the real cheer alert (dedicated scene/animation/sfx).
+	if data.is_anonymous or data.username.is_empty():
+		return
+	var quantity: int = clampi(data.bits / 100, 1, 20)
+	destructibles_names(data.username, quantity)
 
 
 func add_notification_scene(user: RSUser) -> void:

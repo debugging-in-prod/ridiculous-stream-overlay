@@ -91,7 +91,7 @@ support is required — wlroots-based compositors, KDE and COSMIC implement it;
 GNOME does not.
 
 Godot has no layer-shell support upstream. [PR #109875][pr] implements it, and
-this setup uses that PR **rebased onto 4.6.1 with four additional fixes**, all
+this setup uses that PR **rebased onto 4.6.1 with five additional fixes**, all
 found by running it:
 
 1. **Crash on startup.** `window_create()` called
@@ -119,6 +119,16 @@ found by running it:
    handler ignored the `flags` argument, so the last mode always won and
    `screen_get_size()` / `screen_get_usable_rect()` were wrong on every
    compositor that advertises full mode lists.
+
+5. **Text boxes looked focused but keys went to the previous app.** Layer
+   surfaces default to `keyboard_interactivity=none`, and the original bind
+   used protocol v1, which cannot even ask for `on_demand`. Pointer events
+   still arrived through the input region, so Godot's GUI drew a focus ring
+   on a `LineEdit` while `wl_keyboard` stayed on the last focused toplevel.
+   Binding v4 (clamped to what the compositor advertises) and setting
+   `on_demand` makes click-to-focus / click-away work like a normal window.
+   `exclusive` is not used: on the overlay layer it would steal keys from
+   every other client for as long as the overlay is mapped.
 
 [pr]: https://github.com/godotengine/godot/pull/109875
 
@@ -172,6 +182,14 @@ display_server/driver.linuxbsd="wayland"
 window/wayland/layer=4          ; 0 Normal, 1 Background, 2 Bottom, 3 Top, 4 Overlay
 window/wayland/layer_screen=-1  ; -1 = largest output, otherwise an output index
 ```
+
+Layer-shell `Window.position` is **output-relative**: `(0, 0)` is the top-left of
+the bound output. `screen_get_position()` is compositor-global, so a monitor to
+the right of another reports `(2560, 0)`. Passing that through as the overlay's
+position is treated as a 2560px inset from the ultrawide's own left edge, and
+the window hangs off the right. `RSDisplay` and
+`RSUtl.fit_and_center_window_to_display()` therefore use `(0, 0)` when the
+patched engine is hosting the overlay.
 
 `RSDisplay.supports_desktop_overlay()` probes for the patched engine via
 `ClassDB.class_has_integer_constant("DisplayServer", "FEATURE_WAYLAND_LAYER_SHELL")`

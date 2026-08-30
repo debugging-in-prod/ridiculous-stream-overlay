@@ -25,6 +25,8 @@ static var _log: TwitchLogger = TwitchLogger.new(&"RSMain")
 @onready var vetting: RSVetting = %RSVetting
 @onready var display: RSDisplay = %RSDisplay
 @onready var summary_mng: RSSummaryMng = %RSSummaryMng
+# Created in code (not a scene node): the durable cheer feed from the nivek relay.
+var nivek_relay: RSNivekRelay
 
 # Control nodes
 @onready var btn_floating_menu: RSFloatingMenu = %btn_floating_menu
@@ -108,6 +110,12 @@ func start_everything() -> void:
 	btn_floating_menu.show()
 
 	twitcher.start()
+	# Bring the nivek relay up before the cheer consumers (custom, summary_mng)
+	# connect, so cheer_source() resolves to it when it is configured.
+	nivek_relay = RSNivekRelay.new()
+	nivek_relay.name = &"RSNivekRelay"
+	add_child(nivek_relay)
+	nivek_relay.start()
 	user_mng.start()
 	custom.start()
 	vetting.start()
@@ -125,6 +133,15 @@ func start_everything() -> void:
 			pnl.start()
 	
 	all_started.emit()
+
+
+# The signal source for cheer events: the nivek relay when it is configured
+# (durable replay), otherwise the direct-Twitch path. Both expose
+# `cheered(RSTwitchEventData)`, so exactly one delivers and consumers bind to it.
+func cheer_source() -> Object:
+	if nivek_relay and nivek_relay.is_enabled():
+		return nivek_relay
+	return twitcher
 
 
 # ========================== LOAD/SAVE CONFIG ==================================

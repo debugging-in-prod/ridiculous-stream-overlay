@@ -82,6 +82,7 @@ editor/project_preset=&"Overlay"
 editor/load_current_twitch_user=false
 logs/TwitchAPI="info"
 logs/RSTwitcher="debug"
+logs/RSNivekRelay="info"
 logs/RSDisplay="info"
 logs/RSMousePass="info"
 logs/NoOBSWS="info"
