@@ -6,6 +6,8 @@ static var _log: TwitchLogger = TwitchLogger.new(&"RSCustom")
 const STREAM_OVERLAY_SCENE = "Overlay Stream"
 # const STREAM_OVERLAY_VIDEOS = "Overlay Videos"
 
+@export var video_player: VideoStreamPlayer
+@export var file_dialog: FileDialog
 
 func start():
 	_log.i("Started")
@@ -16,9 +18,11 @@ func start():
 	RS.twitcher.subscribed.connect(on_subscribed)
 	# Cheers come from the nivek relay when configured, else direct from Twitch.
 	RS.cheer_source().cheered.connect(on_cheered)
+	# Custom Power-ups exist only on the relay -- twitcher has no equivalent event.
+	if RS.nivek_relay:
+		RS.nivek_relay.power_up_redeemed.connect(on_power_up)
 	RS.twitcher.connected_to_twitch.connect(add_commands)
 	RS.twitcher.first_session_message.connect(on_first_session_message)
-
 
 func add_commands() -> void:
 	_cmd("wishlist", wishlist, "Check out our game on steam! Typing Tower Defence Game: A Few of US: Operation Nightshade.")
@@ -130,6 +134,7 @@ func on_channel_points_redeemed(data: RSTwitchEventData) -> void:
 			RS.no_obs_ws.toggle_mic_mute()
 		"Granades!": RS.physic_scene.spawn_grenade()
 		"Change streamer colour": change_streamer_colour(data.user_input)
+		"Beer Nye!": beer_nye_the_science_guy()
 func on_followed(data: RSTwitchEventData):
 	destructibles_names(data.username)
 func on_raided(data: RSTwitchEventData):
@@ -148,6 +153,26 @@ func on_cheered(data: RSTwitchEventData):
 	var quantity: int = clampi(data.bits / 100, 1, 20)
 	destructibles_names(data.username, quantity)
 
+# Custom Power-ups arrive via the nivek relay. Dispatch on the power-up's title
+# Exactly like on_channel_points_redeemed does for reward_title. Add a case per power-up
+func on_power_up(data: RSTwitchEventData):
+	_log.i("Power-up: '%s' (%d bits) from %s" % [data.power_up_title, data.bits, data.username])
+	match data.power_up_title:
+		# Test power-up: same behavior as the "!b 69" chat command (69 fake beans).
+		"A mullion beanz":
+			spawn_fake_beans("", null, PackedStringArray(["69"]))
+			spawn_fake_beans("", null, PackedStringArray(["69"]))
+			spawn_fake_beans("", null, PackedStringArray(["69"]))
+			spawn_fake_beans("", null, PackedStringArray(["69"]))
+			spawn_fake_beans("", null, PackedStringArray(["69"]))
+			spawn_fake_beans("", null, PackedStringArray(["69"]))
+			spawn_fake_beans("", null, PackedStringArray(["69"]))
+			spawn_fake_beans("", null, PackedStringArray(["69"]))
+			spawn_fake_beans("", null, PackedStringArray(["69"]))
+			spawn_fake_beans("", null, PackedStringArray(["69"]))
+			spawn_fake_beans("", null, PackedStringArray(["69"]))
+		_:
+			_log.i("Unmapped power-up '%s' -- add a case in on_power_up()" % data.power_up_title)
 
 func add_notification_scene(user: RSUser) -> void:
 	var new_notif_inst = RSGlobals.msg_notif_pack.instantiate()
@@ -654,6 +679,23 @@ func open_useless_website():
 	OS.shell_open("https://theuselessweb.com/")
 func open_browser_history():
 	OS.execute("C:/Program Files/BraveSoftware/Brave-Browser/Application/brave.exe", ['brave://history'])
+func beer_nye_the_science_guy():
+	if not is_instance_valid(video_player):
+		_log.e("Beer Nye: no VideoStreamPlayer assigned on RSCustom")
+		return
+	var video_resource := ResourceLoader.load("res://local_res/beer-nye.ogv") as VideoStream
+	if video_resource == null:
+		_log.e("Beer Nye: could not load res://local_res/beer-nye.ogv")
+		return
+	# The player sits hidden in rs_main.tscn, so it has to be revealed for the
+	# playthrough and put back afterwards.
+	if not video_player.finished.is_connected(_on_beer_nye_finished):
+		video_player.finished.connect(_on_beer_nye_finished)
+	video_player.stream = video_resource
+	video_player.show()
+	video_player.play()
+func _on_beer_nye_finished():
+	video_player.hide()
 func open_silent_itch_io_page():
 	pass
 func play_carbrix_or_woop():

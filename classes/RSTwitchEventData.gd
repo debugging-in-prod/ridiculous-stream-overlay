@@ -21,6 +21,8 @@ var message: String
 var bits: int
 var tier: int
 var is_gift: bool
+var power_up_id: String
+var power_up_title: String
 
 
 static func create_from_event_body(_type: String, body: Dictionary) -> RSTwitchEventData:
@@ -47,6 +49,11 @@ static func create_from_event_body(_type: String, body: Dictionary) -> RSTwitchE
 			data.is_anonymous = body.is_anonymous
 			data.message = body.message
 			data.bits = body.bits as int
+		"channel.custom_power_up_redemption.add":
+			# Fed from the nivek relay's flat PowerUpPayload, not a raw Twitch body.
+			data.power_up_id = body.get("power_up_id", "")
+			data.power_up_title = body.get("power_up_title", "")
+			data.bits = int(body.get("bits", 0))
 		"channel.subscribe":
 			data.tier = body.tier as int
 			data.is_gift = body.is_gift
