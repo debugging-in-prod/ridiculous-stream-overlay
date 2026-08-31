@@ -19,6 +19,10 @@ signal cheered(data: RSTwitchEventData)
 ## equivalent -- the addon predates the event -- so they only come via nivek.
 signal power_up_redeemed(data: RSTwitchEventData)
 
+## Twitch Extension Bits interactions (a Bits-in-Extensions product purchase from
+## the panel). nivek-only, like power-ups; consumers dispatch on product_sku.
+signal extension_interaction(data: RSTwitchEventData)
+
 static var _log: TwitchLogger = TwitchLogger.new(&"RSNivekRelay")
 
 # Wire protocol (matches cmd/core-api/endpoints/overlay/connect.go +
@@ -30,6 +34,7 @@ const _MSG_EVENT := "event"
 const _KIND_CHEER := "cheer"
 const _KIND_REDEMPTION := "redemption"
 const _KIND_POWER_UP := "power_up"
+const _KIND_EXTENSION := "extension"
 
 # Persisted delivery cursor: the highest per-user seq we have handled. Kept in a
 # tiny standalone file rather than settings.tres so a per-cheer write never races
@@ -191,6 +196,11 @@ func _handle_event(event: Variant) -> void:
 			# user_*} maps onto RSTwitchEventData via the matching parser case.
 			if typeof(payload) == TYPE_DICTIONARY:
 				power_up_redeemed.emit(RSTwitchEventData.create_from_event_body("channel.custom_power_up_redemption.add", payload))
+		_KIND_EXTENSION:
+			# nivek's flat ExtensionPayload {product_sku, bits, user_*} maps onto
+			# RSTwitchEventData via the "extension.bits" parser case.
+			if typeof(payload) == TYPE_DICTIONARY:
+				extension_interaction.emit(RSTwitchEventData.create_from_event_body("extension.bits", payload))
 		_:
 			_log.w("nivek relay: unknown event kind '%s' (seq %d)" % [kind, seq])
 

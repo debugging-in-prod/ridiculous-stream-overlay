@@ -23,6 +23,7 @@ var tier: int
 var is_gift: bool
 var power_up_id: String
 var power_up_title: String
+var product_sku: String
 
 
 static func create_from_event_body(_type: String, body: Dictionary) -> RSTwitchEventData:
@@ -53,6 +54,11 @@ static func create_from_event_body(_type: String, body: Dictionary) -> RSTwitchE
 			# Fed from the nivek relay's flat PowerUpPayload, not a raw Twitch body.
 			data.power_up_id = body.get("power_up_id", "")
 			data.power_up_title = body.get("power_up_title", "")
+			data.bits = int(body.get("bits", 0))
+		"extension.bits":
+			# Fed from the nivek relay's flat ExtensionPayload. Dispatch on
+			# product_sku, the analogue of power_up_title / reward_title.
+			data.product_sku = body.get("product_sku", "")
 			data.bits = int(body.get("bits", 0))
 		"channel.subscribe":
 			data.tier = body.tier as int

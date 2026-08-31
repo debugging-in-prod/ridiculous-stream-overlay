@@ -21,6 +21,8 @@ func start():
 	# Custom Power-ups exist only on the relay -- twitcher has no equivalent event.
 	if RS.nivek_relay:
 		RS.nivek_relay.power_up_redeemed.connect(on_power_up)
+		# Twitch Extension Bits interactions -- relay-only, like power-ups.
+		RS.nivek_relay.extension_interaction.connect(on_extension_interaction)
 	RS.twitcher.connected_to_twitch.connect(add_commands)
 	RS.twitcher.first_session_message.connect(on_first_session_message)
 
@@ -173,6 +175,19 @@ func on_power_up(data: RSTwitchEventData):
 			spawn_fake_beans("", null, PackedStringArray(["69"]))
 		_:
 			_log.i("Unmapped power-up '%s' -- add a case in on_power_up()" % data.power_up_title)
+
+# Twitch Extension Bits interactions arrive via the nivek relay. Dispatch on the
+# product SKU, exactly like on_power_up does for power_up_title. Add a case per
+# Bits product defined in the Twitch developer console. (Follow-up: move this map
+# out of code into per-broadcaster config so it's redistributable.)
+func on_extension_interaction(data: RSTwitchEventData):
+	_log.i("Extension: sku='%s' (%d bits)" % [data.product_sku, data.bits])
+	match data.product_sku:
+		# Test product: same behavior as the "!b 69" chat command (69 fake beans).
+		"test_beans":
+			spawn_fake_beans("", null, PackedStringArray(["69"]))
+		_:
+			_log.i("Unmapped SKU '%s' -- add a case in on_extension_interaction()" % data.product_sku)
 
 func add_notification_scene(user: RSUser) -> void:
 	var new_notif_inst = RSGlobals.msg_notif_pack.instantiate()
@@ -691,10 +706,12 @@ func beer_nye_the_science_guy():
 	# playthrough and put back afterwards.
 	if not video_player.finished.is_connected(_on_beer_nye_finished):
 		video_player.finished.connect(_on_beer_nye_finished)
+	video_player.get_parent().visible = true
 	video_player.stream = video_resource
 	video_player.show()
 	video_player.play()
 func _on_beer_nye_finished():
+	video_player.get_parent().visible = false
 	video_player.hide()
 func open_silent_itch_io_page():
 	pass
