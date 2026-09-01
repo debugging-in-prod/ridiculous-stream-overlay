@@ -578,6 +578,8 @@ anchor_right = 0.0
 anchor_bottom = 0.0
 offset_right = 1152.0
 offset_bottom = 648.0
+grow_horizontal = 1
+grow_vertical = 1
 theme = null
 
 [node name="pnl_notifications" parent="." unique_id=1417563843 instance=ExtResource("17_sodyi")]
@@ -586,8 +588,10 @@ visible = false
 layout_mode = 0
 anchors_preset = 0
 anchor_left = 1.0
+anchor_bottom = 0.0
 offset_left = -337.0
 grow_horizontal = 0
+grow_vertical = 1
 
 [node name="manadono_snow" type="ColorRect" parent="." unique_id=673401312]
 unique_name_in_owner = true

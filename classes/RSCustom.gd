@@ -27,14 +27,9 @@ func start():
 	RS.twitcher.first_session_message.connect(on_first_session_message)
 
 func add_commands() -> void:
-	_cmd("wishlist", wishlist, "Check out our game on steam! Typing Tower Defence Game: A Few of US: Operation Nightshade.")
-	_cmd("steam", steam, "Check out my steam page.")
-	_cmd("itch", itch, "Check out my itch page.")
 	_cmd("add_me", RS.user_mng._on_user_request_add, "Adds you to the known users of the Ridiculous Stream.")
 	_cmd("discord", discord, "Get an invite to the best discord server ever, with so many channels!")
 	_cmd("c_source", c_source, "Get a link to Finisfine voice acting master class.")
-	_cmd("jam", jam, "Doing the Jern Jam 2025, get link and info.")
-	_cmd("commands", chat_commands_help, "This need to be updated, it's not correct. Don't trust it!")
 	_cmd("pandano", pandano, "Complain about pandacoder with our truly Jern!")
 	_cmd("whostream", whostream, "Shows who, in the known users, is streaming at the moment.")
 	_cmd("b", spawn_fake_beans, "Those beans are fake!", 0, 1)
@@ -137,6 +132,7 @@ func on_channel_points_redeemed(data: RSTwitchEventData) -> void:
 		"Granades!": RS.physic_scene.spawn_grenade()
 		"Change streamer colour": change_streamer_colour(data.user_input)
 		"Beer Nye!": beer_nye_the_science_guy()
+		"smoke chirp": play_smoke_chirp_sound()
 func on_followed(data: RSTwitchEventData):
 	destructibles_names(data.username)
 func on_raided(data: RSTwitchEventData):
@@ -287,33 +283,6 @@ func get_advice(data: RSTwitchEventData) -> void:
 	RS.twitcher.chat(format_string.format(advice_dic) )
 
 
-func wishlist(
-			_from_username: String = "",
-			_info: TwitchCommandInfo = null,
-			_args: PackedStringArray = []
-		) -> void:
-	var msg = "Check out our game on Steam! Typing Tower Defence Game -> A Few of US: Operation Nightshade https://s.team/a/4326920 . Follow IrishJohnGames curated list of steam games HERE: https://store.steampowered.com/curator/45553695-Games-Developed-Live-by-Streamers/ <- DO IT!"
-	RS.twitcher.chat(msg)
-
-
-func steam(
-			_from_username: String = "",
-			_info: TwitchCommandInfo = null,
-			_args: PackedStringArray = []
-		) -> void:
-	var msg = "Check out our game on Steam! Typing Tower Defence Game -> A Few of US: Operation Nightshade https://s.team/a/4326920 . Follow IrishJohnGames curated list of steam games HERE: https://store.steampowered.com/curator/45553695-Games-Developed-Live-by-Streamers/ <- DO IT!"
-	RS.twitcher.chat(msg)
-
-
-func itch(
-			_from_username: String = "",
-			_info: TwitchCommandInfo = null,
-			_args: PackedStringArray = []
-		) -> void:
-	var msg = "Check out our game on itch.io! Typing Tower Defence Game -> A Few of US: Operation Nightshade https://vhoyer.itch.io/operation-nightshade ."
-	RS.twitcher.chat(msg)
-
-
 func discord(
 			_from_username: String = "",
 			_info: TwitchCommandInfo = null,
@@ -333,24 +302,6 @@ func c_source(
 	$sfx_custom.stream = RS.loader.load_sfx_from_sfx_folder("sfx_scissors.ogg")
 	$sfx_custom.play()
 	var msg = "Check out Trickylady first published game with finisfine special guest: https://trickylady.itch.io/the-exam-scam"
-	RS.twitcher.chat(msg)
-
-
-func jam(
-			_from_username: String = "",
-			_info: TwitchCommandInfo = null,
-			_args: PackedStringArray = []
-		) -> void:
-	var msg = "Not doing any jam now after winning this one! https://itch.io/jam/jern-jam-2025 . Also go check trickylady and camsdono game jam game I helped with: https://trickylady.itch.io/bam"
-	RS.twitcher.chat(msg)
-
-
-func chat_commands_help(
-			_from_username: String = "",
-			_info: TwitchCommandInfo = null,
-			_args: PackedStringArray = []
-		) -> void:
-	var msg = "Use a combination of ![command] for chat: hl (highlight), hd(hidden), rb(rainbow), big, small, wave, pulse, tornado, shake"
 	RS.twitcher.chat(msg)
 
 
@@ -423,8 +374,8 @@ func spawn_fake_beans(
 	var count: int = 1
 	if !args.is_empty():
 		count = ceili( float(args[0]) )
-		if count != 69:
-			count = wrapi(count, 0, 6)
+		if count > 100:
+			count = randi_range(50, 100)
 		
 		match args[0]:
 			"temptic":
@@ -713,6 +664,10 @@ func beer_nye_the_science_guy():
 func _on_beer_nye_finished():
 	video_player.get_parent().visible = false
 	video_player.hide()
+func play_smoke_chirp_sound():
+	$sfx_custom.stop()
+	$sfx_custom.stream = ResourceLoader.load("res://local_res/smoke-detector-chirp.ogg") as AudioStream
+	$sfx_custom.play()
 func open_silent_itch_io_page():
 	pass
 func play_carbrix_or_woop():
