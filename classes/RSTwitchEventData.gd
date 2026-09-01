@@ -23,6 +23,8 @@ var tier: int
 var is_gift: bool
 var power_up_id: String
 var power_up_title: String
+var action: String
+var args: PackedStringArray
 var product_sku: String
 
 
@@ -50,6 +52,15 @@ static func create_from_event_body(_type: String, body: Dictionary) -> RSTwitchE
 			data.is_anonymous = body.is_anonymous
 			data.message = body.message
 			data.bits = body.bits as int
+		"nivek.command":
+			# Not a Twitch event type -- a chat command peanutbudderbot matched and
+			# forwarded over the relay, so the overlay never parses chat itself.
+			# The payload is nivek's CommandPayload {action, args, user_*}.
+			data.action = body.get("action", "")
+			var raw_args: Variant = body.get("args", [])
+			if typeof(raw_args) == TYPE_ARRAY:
+				for a in raw_args:
+					data.args.append(str(a))
 		"channel.custom_power_up_redemption.add":
 			# Fed from the nivek relay's flat PowerUpPayload, not a raw Twitch body.
 			data.power_up_id = body.get("power_up_id", "")
