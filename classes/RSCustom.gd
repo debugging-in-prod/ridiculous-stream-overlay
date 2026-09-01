@@ -21,6 +21,7 @@ func start():
 	# Custom Power-ups exist only on the relay -- twitcher has no equivalent event.
 	if RS.nivek_relay:
 		RS.nivek_relay.power_up_redeemed.connect(on_power_up)
+		RS.nivek_relay.command_received.connect(on_relay_command)
 		# Twitch Extension Bits interactions -- relay-only, like power-ups.
 		RS.nivek_relay.extension_interaction.connect(on_extension_interaction)
 	RS.twitcher.connected_to_twitch.connect(add_commands)
@@ -32,10 +33,7 @@ func add_commands() -> void:
 	_cmd("c_source", c_source, "Get a link to Finisfine voice acting master class.")
 	_cmd("pandano", pandano, "Complain about pandacoder with our truly Jern!")
 	_cmd("whostream", whostream, "Shows who, in the known users, is streaming at the moment.")
-	_cmd("b", spawn_fake_beans, "Those beans are fake!", 0, 1)
 	_cmd("d", play_discord_notification, "Plays a discord notification.")
-	_cmd("n", add_name_to_scene, "Add your smol name to the stream.")
-	_cmd("shake", shake_bodies, "These beans on stream need shaking!")
 	_cmd("quack", RS.play_sfx.bind("quack"), "Quack!")
 	_cmd("toggle_music", toggle_music, "Vex667 can toggle the music on stream. You too!")
 	_cmd("mika", play_mika_system_of_a_down, "System of a down is like... by Mika_Shiyu")
@@ -43,11 +41,23 @@ func add_commands() -> void:
 	_cmd("irad", play_irad_being_irad, "How it is to be like the streamer?")
 	_cmd("beginning", play_beginning, "Plays \"In the beginning\".")
 	_cmd("yippee", play_yippee, "Plays \"Yippee!\".")
-	_cmd("snow", let_it_snow, "Manadono has snow on stream, we have our snow at home!")
-	_cmd("laser", laser, "Laseeeeeeerrsss!", 0, 1)
-	_cmd("nuke", nuke, "Too many beans, too many...")
-	_cmd("zeroG", zero_g, "Beans in space!", 0, -1, ["zerog", "0g", "0G"])
-	_cmd("g", spawn_grenade, "Spawn grenades on stream", 0, 1, ["grenade", "granade", "grandma", "grenades"])
+
+	# These eight now live in peanutbudderbot as global builtins gated on
+	# requires='overlay', and arrive back through the relay as command events.
+	# Register them locally ONLY when the relay is not configured, so a
+	# standalone overlay still works and a relayed one does not answer twice.
+	# Same shape as RSMain.cheer_source(): exactly one path is live.
+	if not (RS.nivek_relay and RS.nivek_relay.is_enabled()):
+		_log.i("nivek relay not configured -- registering overlay commands locally")
+		_cmd("b", spawn_fake_beans, "Those beans are fake!", 0, 1)
+		_cmd("n", add_name_to_scene, "Add your smol name to the stream.")
+		_cmd("shake", shake_bodies, "These beans on stream need shaking!")
+		_cmd("snow", let_it_snow, "Manadono has snow on stream, we have our snow at home!")
+		_cmd("laser", laser, "Laseeeeeeerrsss!", 0, 1)
+		_cmd("nuke", nuke, "Too many beans, too many...")
+		_cmd("zeroG", zero_g, "Beans in space!", 0, -1, ["zerog", "0g", "0G"])
+		_cmd("g", spawn_grenade, "Spawn grenades on stream", 0, 1, ["grenade", "granade", "grandma", "grenades"])
+
 	#RS.twitcher.add_command("tts", parse_tts_command, 1, 256)
 	#RS.twitcher.add_command("tts_gb", parse_tts_command.bind("en_GB"), 1, 256)
 	#RS.twitcher.add_command("tts_us", parse_tts_command.bind("en_US"), 1, 256)
@@ -150,6 +160,33 @@ func on_cheered(data: RSTwitchEventData):
 		return
 	var quantity: int = clampi(data.bits / 100, 1, 20)
 	destructibles_names(data.username, quantity)
+
+# Chat commands routed through peanutbudderbot. The bot has already matched the
+# trigger, checked min_role and confirmed this channel is paired to an overlay,
+# so there is nothing to validate here -- only an action to run.
+#
+# Action names are the handler_key in nivek.command minus its "overlay_" prefix
+# (database/prod-apply-overlay-commands.sql in the nivek repo). Aliases collapse
+# on the bot side: !g, !grenade, !grenades, !granade and !grandma all arrive as
+# "grenade". Adding a command means a row there and a case here.
+func on_relay_command(data: RSTwitchEventData) -> void:
+	_log.i("Relay command: '%s' %s from %s" % [data.action, data.args, data.username])
+	match data.action:
+		"beans": spawn_fake_beans(data.username, null, data.args)
+		"shake": shake_bodies(data.username, null, data.args)
+		"laser": laser(data.username, null, data.args)
+		"nuke": nuke(data.username, null, data.args)
+		"zero_g": zero_g(data.username, null, data.args)
+		"grenade": spawn_grenade(data.username, null, data.args)
+		"snow": let_it_snow(data.username, null, data.args)
+		"name":
+			# Not add_name_to_scene(): that reads info.username off a
+			# TwitchCommandInfo, and a relay command has no such object. Call the
+			# same underlying spawn with the chatter the bot gave us.
+			destructibles_names(data.username, 1, 48)
+		_:
+			_log.w("Unmapped relay command '%s' -- add a case in on_relay_command()" % data.action)
+
 
 # Custom Power-ups arrive via the nivek relay. Dispatch on the power-up's title
 # Exactly like on_channel_points_redeemed does for reward_title. Add a case per power-up
