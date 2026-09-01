@@ -1,4 +1,4 @@
-[gd_scene load_steps=35 format=3 uid="uid://cdgelqh5th1pl"]
+[gd_scene format=3 uid="uid://cdgelqh5th1pl"]
 
 [ext_resource type="Script" uid="uid://do408jnt2icgr" path="res://instances/btn_floating_menu.gd" id="1_osqlv"]
 [ext_resource type="Theme" uid="uid://ce52ib0ugeqlb" path="res://ui/floating_menu.tres" id="1_rrnku"]
@@ -31,9 +31,10 @@
 [ext_resource type="Texture2D" uid="uid://br65d5wxxjoca" path="res://ui/icons/bootstrap_icons/stop-circle.svg" id="26_yin7d"]
 [ext_resource type="Texture2D" uid="uid://bd2hjbrstb28k" path="res://ui/sprites/scroll-unfurled.svg" id="29_yin7d"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_8cnys"]
-bg_color = Color(0.14902, 0.054902, 0.0745098, 0.913725)
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_6j3sw"]
+bg_color = Color(0.0850918, 0.0792672, 0.0792826, 0.505882)
 border_color = Color(0.0176409, 0.633753, 0.394838, 1)
+border_blend = true
 corner_radius_top_left = 32
 corner_radius_top_right = 32
 corner_radius_bottom_right = 32
@@ -52,10 +53,9 @@ corner_radius_top_right = 32
 corner_radius_bottom_right = 32
 corner_radius_bottom_left = 32
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_6j3sw"]
-bg_color = Color(0.0850918, 0.0792672, 0.0792826, 0.505882)
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_8cnys"]
+bg_color = Color(0.14902, 0.054902, 0.0745098, 0.913725)
 border_color = Color(0.0176409, 0.633753, 0.394838, 1)
-border_blend = true
 corner_radius_top_left = 32
 corner_radius_top_right = 32
 corner_radius_bottom_right = 32
@@ -64,7 +64,7 @@ corner_radius_bottom_left = 32
 [sub_resource type="LabelSettings" id="LabelSettings_ag8w1"]
 font_size = 10
 
-[node name="btn_floating_menu" type="Button"]
+[node name="btn_floating_menu" type="Button" unique_id=280530383]
 auto_translate_mode = 1
 custom_minimum_size = Vector2(64, 64)
 anchors_preset = 1
@@ -76,13 +76,13 @@ offset_bottom = 158.0
 grow_horizontal = 0
 focus_mode = 0
 theme = ExtResource("1_rrnku")
-theme_override_colors/icon_hover_pressed_color = Color(1, 0.627451, 0.478431, 1)
-theme_override_colors/icon_hover_color = Color(1, 1, 1, 0.745098)
-theme_override_colors/icon_normal_color = Color(1, 1, 1, 0.368627)
 theme_override_colors/font_color = Color(1, 1, 1, 0.368627)
-theme_override_styles/hover = SubResource("StyleBoxFlat_8cnys")
-theme_override_styles/pressed = SubResource("StyleBoxFlat_igiu5")
+theme_override_colors/icon_normal_color = Color(1, 1, 1, 0.368627)
+theme_override_colors/icon_hover_color = Color(1, 1, 1, 0.745098)
+theme_override_colors/icon_hover_pressed_color = Color(1, 0.627451, 0.478431, 1)
 theme_override_styles/normal = SubResource("StyleBoxFlat_6j3sw")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_igiu5")
+theme_override_styles/hover = SubResource("StyleBoxFlat_8cnys")
 icon = ExtResource("2_0ygup")
 icon_alignment = 1
 expand_icon = true
@@ -91,7 +91,7 @@ expand_on_hover = false
 is_radial = true
 anim_delay = 0.02
 
-[node name="indicators" type="Control" parent="."]
+[node name="indicators" type="Control" parent="." unique_id=1445954161]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -101,10 +101,10 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="ico_stream" type="TextureRect" parent="indicators"]
+[node name="ico_stream" type="TextureRect" parent="indicators" unique_id=298603904]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(16, 16)
-layout_mode = 2
+layout_mode = 0
 offset_left = 16.0
 offset_top = 48.0
 offset_right = 32.0
@@ -113,10 +113,10 @@ texture = ExtResource("19_3caay")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="ico_pixelate" type="TextureRect" parent="indicators"]
+[node name="ico_pixelate" type="TextureRect" parent="indicators" unique_id=740959687]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(16, 16)
-layout_mode = 2
+layout_mode = 0
 offset_top = 48.0
 offset_right = 16.0
 offset_bottom = 64.0
@@ -124,10 +124,10 @@ texture = ExtResource("5_dltuo")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="ico_mic" type="TextureRect" parent="indicators"]
+[node name="ico_mic" type="TextureRect" parent="indicators" unique_id=916774226]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(16, 16)
-layout_mode = 2
+layout_mode = 0
 offset_left = 32.0
 offset_top = 48.0
 offset_right = 48.0
@@ -136,10 +136,10 @@ texture = ExtResource("4_xbf4m")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="ico_brave" type="TextureRect" parent="indicators"]
+[node name="ico_brave" type="TextureRect" parent="indicators" unique_id=1950139515]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(16, 16)
-layout_mode = 2
+layout_mode = 0
 offset_left = 48.0
 offset_top = 48.0
 offset_right = 64.0
@@ -148,7 +148,7 @@ texture = ExtResource("16_2b4wq")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="btn_physics" type="Button" parent="."]
+[node name="btn_physics" type="Button" parent="." unique_id=945754435]
 visible = false
 custom_minimum_size = Vector2(48, 48)
 layout_mode = 0
@@ -163,7 +163,7 @@ script = ExtResource("8_nsbul")
 fold_on_child_button_pressed = false
 metadata/_custom_type_script = "uid://bh0kof5lgt3u6"
 
-[node name="btn_beans" type="Button" parent="btn_physics"]
+[node name="btn_beans" type="Button" parent="btn_physics" unique_id=1382536898]
 visible = false
 custom_minimum_size = Vector2(48, 48)
 layout_mode = 0
@@ -173,7 +173,7 @@ icon = ExtResource("5_xcqun")
 icon_alignment = 1
 expand_icon = true
 
-[node name="btn_laser" type="Button" parent="btn_physics"]
+[node name="btn_laser" type="Button" parent="btn_physics" unique_id=1975931715]
 visible = false
 custom_minimum_size = Vector2(48, 48)
 layout_mode = 0
@@ -183,7 +183,7 @@ icon = ExtResource("6_0cxqy")
 icon_alignment = 1
 expand_icon = true
 
-[node name="btn_nuke" type="Button" parent="btn_physics"]
+[node name="btn_nuke" type="Button" parent="btn_physics" unique_id=959768419]
 visible = false
 custom_minimum_size = Vector2(48, 48)
 layout_mode = 0
@@ -193,7 +193,7 @@ icon = ExtResource("7_dobih")
 icon_alignment = 1
 expand_icon = true
 
-[node name="lb_count" type="Label" parent="btn_physics/btn_nuke"]
+[node name="lb_count" type="Label" parent="btn_physics/btn_nuke" unique_id=1399584098]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 12
@@ -209,7 +209,7 @@ label_settings = SubResource("LabelSettings_ag8w1")
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="btn_zerog" type="Button" parent="btn_physics"]
+[node name="btn_zerog" type="Button" parent="btn_physics" unique_id=635349937]
 visible = false
 custom_minimum_size = Vector2(48, 48)
 layout_mode = 0
@@ -219,7 +219,7 @@ icon = ExtResource("8_56bnq")
 icon_alignment = 1
 expand_icon = true
 
-[node name="btn_names" type="Button" parent="btn_physics"]
+[node name="btn_names" type="Button" parent="btn_physics" unique_id=601275211]
 visible = false
 custom_minimum_size = Vector2(48, 48)
 layout_mode = 0
@@ -229,7 +229,7 @@ icon = ExtResource("9_d5ryv")
 icon_alignment = 1
 expand_icon = true
 
-[node name="btn_granade" type="Button" parent="btn_physics"]
+[node name="btn_granade" type="Button" parent="btn_physics" unique_id=928023337]
 visible = false
 custom_minimum_size = Vector2(48, 48)
 layout_mode = 0
@@ -239,12 +239,13 @@ icon = ExtResource("10_xo0od")
 icon_alignment = 1
 expand_icon = true
 
-[node name="btn_obs" type="Button" parent="."]
+[node name="btn_obs" type="Button" parent="." unique_id=552559252]
 unique_name_in_owner = true
 visible = false
 layout_mode = 0
 offset_right = 114.0
 offset_bottom = 114.0
+disabled = true
 icon = ExtResource("13_tyq2w")
 icon_alignment = 1
 script = ExtResource("8_nsbul")
@@ -255,7 +256,7 @@ anim_duration = 0.08
 anim_delay = 0.047
 metadata/_custom_type_script = "uid://bh0kof5lgt3u6"
 
-[node name="btn_cig" type="Button" parent="btn_obs"]
+[node name="btn_cig" type="Button" parent="btn_obs" unique_id=1940000540]
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 0
 offset_right = 72.0
@@ -263,7 +264,7 @@ offset_bottom = 72.0
 icon = ExtResource("17_6ofjk")
 icon_alignment = 1
 
-[node name="btn_mic" type="Button" parent="btn_obs"]
+[node name="btn_mic" type="Button" parent="btn_obs" unique_id=1686690866]
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 0
 offset_right = 72.0
@@ -271,7 +272,7 @@ offset_bottom = 72.0
 icon = ExtResource("15_gmvp0")
 icon_alignment = 1
 
-[node name="btn_brave_sound" type="Button" parent="btn_obs"]
+[node name="btn_brave_sound" type="Button" parent="btn_obs" unique_id=1793514154]
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 0
 offset_right = 72.0
@@ -279,7 +280,7 @@ offset_bottom = 72.0
 icon = ExtResource("16_2b4wq")
 icon_alignment = 1
 
-[node name="btn_pixelate" type="Button" parent="btn_obs"]
+[node name="btn_pixelate" type="Button" parent="btn_obs" unique_id=695232913]
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 0
 offset_right = 72.0
@@ -287,7 +288,7 @@ offset_bottom = 72.0
 icon = ExtResource("5_dltuo")
 icon_alignment = 1
 
-[node name="btn_chat" type="Button" parent="."]
+[node name="btn_chat" type="Button" parent="." unique_id=192519746]
 visible = false
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 0
@@ -298,7 +299,7 @@ offset_bottom = 53.0
 icon = ExtResource("20_yin7d")
 icon_alignment = 1
 
-[node name="btn_user_list" type="Button" parent="."]
+[node name="btn_user_list" type="Button" parent="." unique_id=2068895607]
 visible = false
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 0
@@ -309,31 +310,39 @@ offset_bottom = 43.0
 icon = ExtResource("19_mqodr")
 icon_alignment = 1
 
-[node name="btn_settings" type="Button" parent="."]
+[node name="btn_settings_v2" type="Button" parent="." unique_id=1287039013]
+visible = false
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+icon = ExtResource("20_edp4g")
+
+[node name="btn_settings" type="Button" parent="." unique_id=1178359253]
 visible = false
 layout_mode = 0
 offset_right = 98.0
 offset_bottom = 98.0
+disabled = true
 icon = ExtResource("20_edp4g")
 script = ExtResource("8_nsbul")
-is_radial = true
-radial_angle = 98.5
 metadata/_custom_type_script = "uid://bh0kof5lgt3u6"
 
-[node name="btn_test" type="Button" parent="btn_settings"]
+[node name="btn_test" type="Button" parent="btn_settings" unique_id=593769164]
 visible = false
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 0
 offset_right = 72.0
 offset_bottom = 72.0
+disabled = true
 icon = ExtResource("6_jsivt")
 icon_alignment = 1
 
-[node name="btn_display" type="Button" parent="btn_settings"]
+[node name="btn_display" type="Button" parent="btn_settings" unique_id=663178776]
 visible = false
 layout_mode = 0
 offset_right = 50.0
 offset_bottom = 50.0
+disabled = true
 icon = ExtResource("15_nr2c5")
 icon_alignment = 1
 script = ExtResource("8_nsbul")
@@ -342,16 +351,17 @@ radial_angle = 52.0
 anim_duration = 0.08
 metadata/_custom_type_script = "uid://bh0kof5lgt3u6"
 
-[node name="btn_maximize" type="Button" parent="btn_settings/btn_display"]
+[node name="btn_maximize" type="Button" parent="btn_settings/btn_display" unique_id=729395857]
 visible = false
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 0
 offset_right = 40.0
 offset_bottom = 40.0
+disabled = true
 icon = ExtResource("6_3t7q5")
 icon_alignment = 1
 
-[node name="btn_debug" type="Button" parent="btn_settings/btn_display"]
+[node name="btn_debug" type="Button" parent="btn_settings/btn_display" unique_id=1978534037]
 visible = false
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 0
@@ -359,22 +369,24 @@ offset_left = 173.0
 offset_top = 28.0
 offset_right = 213.0
 offset_bottom = 68.0
+disabled = true
 icon = ExtResource("11_e26wg")
 icon_alignment = 1
 
-[node name="btn_panels" type="Button" parent="btn_settings"]
+[node name="btn_panels" type="Button" parent="btn_settings" unique_id=48722487]
 unique_name_in_owner = true
 visible = false
 layout_mode = 0
 offset_right = 50.0
 offset_bottom = 50.0
+disabled = true
 icon = ExtResource("7_y65x8")
 icon_alignment = 1
 script = ExtResource("8_nsbul")
 radial_angle = 104.5
 metadata/_custom_type_script = "uid://bh0kof5lgt3u6"
 
-[node name="btn_end" type="Button" parent="."]
+[node name="btn_end" type="Button" parent="." unique_id=1754698535]
 visible = false
 layout_mode = 0
 offset_right = 40.0
@@ -383,7 +395,7 @@ icon = ExtResource("26_yin7d")
 script = ExtResource("8_nsbul")
 metadata/_custom_type_script = "uid://bh0kof5lgt3u6"
 
-[node name="btn_summary" type="Button" parent="btn_end"]
+[node name="btn_summary" type="Button" parent="btn_end" unique_id=1247005112]
 visible = false
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 0
@@ -392,7 +404,7 @@ offset_bottom = 514.0
 icon = ExtResource("24_waudl")
 icon_alignment = 1
 
-[node name="btn_summary_start" type="Button" parent="btn_end"]
+[node name="btn_summary_start" type="Button" parent="btn_end" unique_id=260351845]
 visible = false
 custom_minimum_size = Vector2(32, 32)
 layout_mode = 0
@@ -401,7 +413,7 @@ offset_bottom = 514.0
 icon = ExtResource("29_yin7d")
 icon_alignment = 1
 
-[node name="btn_close" type="Button" parent="btn_end"]
+[node name="btn_close" type="Button" parent="btn_end" unique_id=48630781]
 unique_name_in_owner = true
 visible = false
 custom_minimum_size = Vector2(32, 32)
@@ -425,6 +437,7 @@ icon_alignment = 1
 [connection signal="pressed" from="btn_obs/btn_pixelate" to="." method="_on_btn_pixelate_pressed"]
 [connection signal="pressed" from="btn_chat" to="." method="_on_btn_chat_pressed"]
 [connection signal="pressed" from="btn_user_list" to="." method="_on_btn_user_list_pressed"]
+[connection signal="pressed" from="btn_settings_v2" to="." method="_on_btn_settings_v2_pressed"]
 [connection signal="pressed" from="btn_settings/btn_test" to="." method="_on_btn_test_pressed"]
 [connection signal="pressed" from="btn_settings/btn_display/btn_maximize" to="." method="_on_btn_maximize_pressed"]
 [connection signal="pressed" from="btn_settings/btn_display/btn_debug" to="." method="_on_btn_debug_pressed"]

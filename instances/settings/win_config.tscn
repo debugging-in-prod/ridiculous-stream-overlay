@@ -1,0 +1,54 @@
+[gd_scene format=3 uid="uid://mid3p4jelr35"]
+
+[ext_resource type="Script" uid="uid://bgan2qbmvgb8n" path="res://instances/settings/win_config.gd" id="1_fkr7n"]
+
+[node name="WinConfig" type="Window" unique_id=1731052049 groups=["UIWindows"]]
+title = "Overlay Configuration"
+size = Vector2i(420, 240)
+min_size = Vector2i(360, 200)
+visible = false
+script = ExtResource("1_fkr7n")
+
+[node name="pnl_config" type="PanelContainer" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="mrg" type="MarginContainer" parent="pnl_config"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="vb" type="VBoxContainer" parent="pnl_config/mrg"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ck_chat_notifications" type="CheckButton" parent="pnl_config/mrg/vb"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Play a sound and particle burst when someone chats."
+button_pressed = true
+text = "Chat notifications"
+
+[node name="ck_names_on_screen" type="CheckButton" parent="pnl_config/mrg/vb"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Drop chatter names into the physics scene."
+button_pressed = true
+text = "Names on screen"
+
+[node name="hs" type="HSeparator" parent="pnl_config/mrg/vb"]
+layout_mode = 2
+
+[node name="btn_debug" type="Button" parent="pnl_config/mrg/vb"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Toggle Debug View"
+
+[connection signal="toggled" from="pnl_config/mrg/vb/ck_chat_notifications" to="." method="_on_ck_chat_notifications_toggled"]
+[connection signal="toggled" from="pnl_config/mrg/vb/ck_names_on_screen" to="." method="_on_ck_names_on_screen_toggled"]
+[connection signal="pressed" from="pnl_config/mrg/vb/btn_debug" to="." method="_on_btn_debug_pressed"]

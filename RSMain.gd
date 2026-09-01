@@ -38,6 +38,7 @@ var nivek_relay: RSNivekRelay
 @onready var pnl_chat: RSPnlChat = %pnl_chat
 @onready var pnl_settings: RSPnlSettings = %pnl_settings
 @onready var pnl_summary: PnlSummary = %pnl_summary
+@onready var win_config: RSWinConfig = %win_config
 @onready var alert_scene: RSAlertOverlay = %alert_scene
 @onready var physic_scene: RSPhysicsScene = %physics_scene
 
@@ -129,6 +130,7 @@ func start_everything() -> void:
 	physic_scene.start()
 	pnl_notifications.start()
 	alert_scene.start()
+	win_config.start()
 	summary_mng.start()
 	
 	for pnl: Control in pnls_to_start:

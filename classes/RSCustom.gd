@@ -223,6 +223,7 @@ func on_extension_interaction(data: RSTwitchEventData):
 			_log.i("Unmapped SKU '%s' -- add a case in on_extension_interaction()" % data.product_sku)
 
 func add_notification_scene(user: RSUser) -> void:
+	if not RS.settings.chat_notifications_enabled: return
 	var new_notif_inst = RSGlobals.msg_notif_pack.instantiate()
 	RS.add_child(new_notif_inst)
 	new_notif_inst.start(user)
@@ -592,6 +593,7 @@ func nuke(
 
 
 func destructibles_names(username := "", quantity: int = 1, font_size := 96):
+	if not RS.settings.names_on_screen_enabled: return
 	var user: RSUser
 	if username.is_empty() and !RS.user_mng.known.is_empty():
 		user = RS.user_mng.known.values().pick_random()

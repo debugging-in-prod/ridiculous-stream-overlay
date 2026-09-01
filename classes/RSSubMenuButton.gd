@@ -67,7 +67,8 @@ func start(_main_menu_button: RSSubMenuButton = null) -> void:
 	all_btns = []
 	for child in get_children():
 		if child is Button:
-			all_btns.append(child)
+			if !child.disabled:
+				all_btns.append(child)
 	
 	for btn in all_btns:
 		if btn is RSSubMenuButton:

@@ -46,6 +46,7 @@
 [ext_resource type="PackedScene" uid="uid://dduocy5paeeuu" path="res://instances/pnl_summary.tscn" id="25_ht5xl"]
 [ext_resource type="Script" uid="uid://dcq1bvfrqimqq" path="res://addons/twitcher/chat/twitch_chat.gd" id="25_stwwt"]
 [ext_resource type="Script" uid="uid://ch0rxi1ogjx3q" path="res://addons/twitcher/chat/twitch_command_help.gd" id="26_t7nc8"]
+[ext_resource type="PackedScene" uid="uid://mid3p4jelr35" path="res://instances/settings/win_config.tscn" id="47_t7nc8"]
 
 [sub_resource type="Resource" id="Resource_7gvem"]
 script = ExtResource("10_1ry14")
@@ -633,3 +634,7 @@ offset_right = 1487.0
 offset_bottom = 1025.0
 
 [node name="FileDialog" type="FileDialog" parent="." unique_id=800584398]
+
+[node name="win_config" parent="." unique_id=1731052049 instance=ExtResource("47_t7nc8")]
+unique_name_in_owner = true
+oversampling_override = 1.0

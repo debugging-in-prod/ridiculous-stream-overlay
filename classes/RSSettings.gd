@@ -85,6 +85,10 @@ const RS_SFX_FOLDER = "sfx/"
 @export var welcome_display_always := true
 @export var debug_mode := false
 
+# Overlay feature toggles, set from the configuration window (RSWinConfig).
+@export var chat_notifications_enabled := true
+@export var names_on_screen_enabled := true
+
 @export var auto_connect : bool = false
 @export var max_messages_in_chat : int = 100
 
