@@ -36,7 +36,9 @@ func start() -> void:
 func connect_twitcher_events() -> void:
 	RS.twitcher.received_chat_message.connect(_on_received_chat_message)
 	RS.twitcher.channel_points_redeemed.connect(_on_channel_points_redeemed)
-	RS.twitcher.cheered.connect(_on_cheered)
+	# Cheers come from the nivek relay when configured, else direct from Twitch,
+	# so bit totals track whichever source is actually delivering cheers.
+	RS.cheer_source().cheered.connect(_on_cheered)
 	RS.twitcher.raided.connect(_on_raided)
 	RS.twitcher.subscribed.connect(_on_subscribed)
 #endregion

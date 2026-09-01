@@ -1,8 +1,8 @@
-[gd_scene load_steps=82 format=3 uid="uid://d345j5een73bf"]
+[gd_scene format=3 uid="uid://d345j5een73bf"]
 
 [ext_resource type="Theme" uid="uid://d1rxorbgvgyer" path="res://ui/ridiculous_stream_main.theme" id="1_1q0ot"]
 [ext_resource type="Script" uid="uid://brw4mp8qnlxxh" path="res://RSMain.gd" id="1_y2jdm"]
-[ext_resource type="Script" path="res://classes/RSMousePass.gd" id="2_4s2fq"]
+[ext_resource type="Script" uid="uid://demg551yowegu" path="res://classes/RSMousePass.gd" id="2_4s2fq"]
 [ext_resource type="Script" uid="uid://doxabl7ha832k" path="res://classes/RSMouseTracker.gd" id="2_xjlao"]
 [ext_resource type="PackedScene" uid="uid://gxr8ww6jok8i" path="res://instances/physics_scene.tscn" id="3_d3yde"]
 [ext_resource type="PackedScene" uid="uid://che3syvs71fq3" path="res://instances/debug_view.tscn" id="5_j4imi"]
@@ -33,6 +33,7 @@
 [ext_resource type="PackedScene" uid="uid://bhjtpi0nfv415" path="res://instances/pnl_notifications.tscn" id="17_sodyi"]
 [ext_resource type="Script" uid="uid://blmhj3j00yk45" path="res://addons/twitcher/eventsub/twitch_eventsub.gd" id="17_stwwt"]
 [ext_resource type="Script" uid="uid://cjug64e3433g0" path="res://addons/twitcher/eventsub/twitch_eventsub_config.gd" id="18_t7nc8"]
+[ext_resource type="PackedScene" uid="uid://cokv6nhefofwl" path="res://instances/welcome/pnl_welcome.tscn" id="19_3rcuc"]
 [ext_resource type="PackedScene" uid="uid://dregwshpiqg8j" path="res://instances/alert_overlay.tscn" id="19_gj13v"]
 [ext_resource type="Script" uid="uid://d4lyup0vy1wtu" path="res://addons/twitcher/media/twitch_media_loader.gd" id="19_vn8cx"]
 [ext_resource type="Texture2D" uid="uid://g1dbcjksbotw" path="res://addons/twitcher/assets/fallback_texture.tres" id="20_q2h71"]
@@ -49,14 +50,9 @@
 [sub_resource type="Resource" id="Resource_7gvem"]
 script = ExtResource("10_1ry14")
 redirect_url = "http://localhost:18297"
-well_known_url = ""
 token_url = "https://id.twitch.tv/oauth2/token"
 authorization_url = "https://id.twitch.tv/oauth2/authorize"
-device_authorization_url = ""
-cache_file = "res://auth.key"
 client_id = "t0nkdk4ssr5mhvyj2939da8y4gngrp"
-authorization_flow = 0
-_encryption_key_provider = ExtResource("8_4dc0s")
 client_secret = "bZ6s4EjBYiJFaGFsJRLwQ6GZWCtJnXUow9TyQ/N6ZwM="
 metadata/_custom_type_script = "uid://00xbijwpi8xa"
 
@@ -67,31 +63,21 @@ metadata/_custom_type_script = "uid://b3n3et8mebjcc"
 
 [sub_resource type="Resource" id="Resource_rbl80"]
 script = ExtResource("9_wkncm")
-_crypto_key_provider = ExtResource("8_4dc0s")
 _identifier = "Auth-4293"
-_cache_path = "user://auth.conf"
 metadata/_custom_type_script = "uid://b52xp7c23ucfk"
 
 [sub_resource type="Resource" id="Resource_ahdki"]
 script = ExtResource("16_xfrgx")
 username = "iraddev"
-auto_join_channels = Array[StringName]([])
-server = "wss://irc-ws.chat.twitch.tv:443"
-send_message_delay_ms = 320
-capabilities = 0
 
 [sub_resource type="Resource" id="Resource_itq8v"]
 script = ExtResource("21_xfrgx")
 id = "443367221"
 login = "iraddev"
 display_name = "iRadDev"
-type = ""
 broadcaster_type = "affiliate"
 description = "My name is Dario, I am an architect and I code and game dev. I'm working on a Tower Defence game with some RTS elements blended into it. You will see map generations, programmer's art in Krita and development in Godot 4. Enjoy!"
 profile_image_url = "https://static-cdn.jtvnw.net/jtv_user_pictures/cceb39b3-01c2-41b2-9309-a9c9697372cb-profile_image-300x300.png"
-offline_image_url = ""
-view_count = 0
-email = ""
 created_at = "2019-06-22T15:18:14Z"
 
 [sub_resource type="Resource" id="Resource_frd2u"]
@@ -108,13 +94,9 @@ script = ExtResource("21_xfrgx")
 id = "443367221"
 login = "iraddev"
 display_name = "iRadDev"
-type = ""
 broadcaster_type = "affiliate"
 description = "My name is Dario, I am an architect and I code and game dev. I'm working on a Tower Defence game with some RTS elements blended into it. You will see map generations, programmer's art in Krita and development in Godot 4. Enjoy!"
 profile_image_url = "https://static-cdn.jtvnw.net/jtv_user_pictures/cceb39b3-01c2-41b2-9309-a9c9697372cb-profile_image-300x300.png"
-offline_image_url = ""
-view_count = 0
-email = ""
 created_at = "2019-06-22T15:18:14Z"
 
 [sub_resource type="Resource" id="Resource_ud7fj"]
@@ -140,13 +122,9 @@ script = ExtResource("21_xfrgx")
 id = "443367221"
 login = "iraddev"
 display_name = "iRadDev"
-type = ""
 broadcaster_type = "affiliate"
 description = "My name is Dario, I am an architect and I code and game dev. I'm working on a Tower Defence game with some RTS elements blended into it. You will see map generations, programmer's art in Krita and development in Godot 4. Enjoy!"
 profile_image_url = "https://static-cdn.jtvnw.net/jtv_user_pictures/cceb39b3-01c2-41b2-9309-a9c9697372cb-profile_image-300x300.png"
-offline_image_url = ""
-view_count = 0
-email = ""
 created_at = "2019-06-22T15:18:14Z"
 
 [sub_resource type="Resource" id="Resource_jmoph"]
@@ -163,13 +141,9 @@ script = ExtResource("21_xfrgx")
 id = "443367221"
 login = "iraddev"
 display_name = "iRadDev"
-type = ""
 broadcaster_type = "affiliate"
 description = "My name is Dario, I am an architect and I code and game dev. I'm working on a Tower Defence game with some RTS elements blended into it. You will see map generations, programmer's art in Krita and development in Godot 4. Enjoy!"
 profile_image_url = "https://static-cdn.jtvnw.net/jtv_user_pictures/cceb39b3-01c2-41b2-9309-a9c9697372cb-profile_image-300x300.png"
-offline_image_url = ""
-view_count = 0
-email = ""
 created_at = "2019-06-22T15:18:14Z"
 
 [sub_resource type="Resource" id="Resource_xfrgx"]
@@ -186,13 +160,9 @@ script = ExtResource("21_xfrgx")
 id = "443367221"
 login = "iraddev"
 display_name = "iRadDev"
-type = ""
 broadcaster_type = "affiliate"
 description = "My name is Dario, I am an architect and I code and game dev. I'm working on a Tower Defence game with some RTS elements blended into it. You will see map generations, programmer's art in Krita and development in Godot 4. Enjoy!"
 profile_image_url = "https://static-cdn.jtvnw.net/jtv_user_pictures/cceb39b3-01c2-41b2-9309-a9c9697372cb-profile_image-300x300.png"
-offline_image_url = ""
-view_count = 0
-email = ""
 created_at = "2019-06-22T15:18:14Z"
 
 [sub_resource type="Resource" id="Resource_stwwt"]
@@ -258,13 +228,9 @@ script = ExtResource("21_xfrgx")
 id = "443367221"
 login = "iraddev"
 display_name = "iRadDev"
-type = ""
 broadcaster_type = "affiliate"
 description = "My name is Dario, I am an architect and I code and game dev. I'm working on a Tower Defence game with some RTS elements blended into it. You will see map generations, programmer's art in Krita and development in Godot 4. Enjoy!"
 profile_image_url = "https://static-cdn.jtvnw.net/jtv_user_pictures/cceb39b3-01c2-41b2-9309-a9c9697372cb-profile_image-300x300.png"
-offline_image_url = ""
-view_count = 0
-email = ""
 created_at = "2019-06-22T15:18:14Z"
 
 [sub_resource type="Resource" id="Resource_fjdrr"]
@@ -281,13 +247,9 @@ script = ExtResource("21_xfrgx")
 id = "443367221"
 login = "iraddev"
 display_name = "iRadDev"
-type = ""
 broadcaster_type = "affiliate"
 description = "My name is Dario, I am an architect and I code and game dev. I'm working on a Tower Defence game with some RTS elements blended into it. You will see map generations, programmer's art in Krita and development in Godot 4. Enjoy!"
 profile_image_url = "https://static-cdn.jtvnw.net/jtv_user_pictures/cceb39b3-01c2-41b2-9309-a9c9697372cb-profile_image-300x300.png"
-offline_image_url = ""
-view_count = 0
-email = ""
 created_at = "2019-06-22T15:18:14Z"
 
 [sub_resource type="Resource" id="Resource_po7a7"]
@@ -304,13 +266,9 @@ script = ExtResource("21_xfrgx")
 id = "443367221"
 login = "iraddev"
 display_name = "iRadDev"
-type = ""
 broadcaster_type = "affiliate"
 description = "My name is Dario, I am an architect and I code and game dev. I'm working on a Tower Defence game with some RTS elements blended into it. You will see map generations, programmer's art in Krita and development in Godot 4. Enjoy!"
 profile_image_url = "https://static-cdn.jtvnw.net/jtv_user_pictures/cceb39b3-01c2-41b2-9309-a9c9697372cb-profile_image-300x300.png"
-offline_image_url = ""
-view_count = 0
-email = ""
 created_at = "2019-06-22T15:18:14Z"
 
 [sub_resource type="Resource" id="Resource_hpbui"]
@@ -327,13 +285,9 @@ script = ExtResource("21_xfrgx")
 id = "443367221"
 login = "iraddev"
 display_name = "iRadDev"
-type = ""
 broadcaster_type = "affiliate"
 description = "My name is Dario, I am an architect and I code and game dev. I'm working on a Tower Defence game with some RTS elements blended into it. You will see map generations, programmer's art in Krita and development in Godot 4. Enjoy!"
 profile_image_url = "https://static-cdn.jtvnw.net/jtv_user_pictures/cceb39b3-01c2-41b2-9309-a9c9697372cb-profile_image-300x300.png"
-offline_image_url = ""
-view_count = 0
-email = ""
 created_at = "2019-06-22T15:18:14Z"
 
 [sub_resource type="Resource" id="Resource_8xmxy"]
@@ -350,18 +304,13 @@ script = ExtResource("21_xfrgx")
 id = "443367221"
 login = "iraddev"
 display_name = "iRadDev"
-type = ""
 broadcaster_type = "affiliate"
 description = "My name is Dario, I am an architect and I code and game dev. I'm working on a Tower Defence game with some RTS elements blended into it. You will see map generations, programmer's art in Krita and development in Godot 4. Enjoy!"
 profile_image_url = "https://static-cdn.jtvnw.net/jtv_user_pictures/cceb39b3-01c2-41b2-9309-a9c9697372cb-profile_image-300x300.png"
-offline_image_url = ""
-view_count = 0
-email = ""
 created_at = "2019-06-22T15:18:14Z"
 
 [sub_resource type="Resource" id="Resource_5tays"]
 script = ExtResource("18_t7nc8")
-type = 0
 condition = {
 &"broadcaster_user_id": "443367221",
 &"moderator_user_id": ""
@@ -372,7 +321,6 @@ metadata/broadcaster_user_id_user = SubResource("Resource_k5s5h")
 [sub_resource type="Resource" id="Resource_tsaix"]
 script = ExtResource("24_xfrgx")
 imagemagic_path = "C:/Program Files/ImageMagick-7.1.1-Q16-HDRI/magick.exe"
-fallback_texture = ExtResource("20_q2h71")
 metadata/_custom_type_script = "uid://dqd4kovdhhy8o"
 
 [sub_resource type="Resource" id="Resource_kuyc8"]
@@ -380,13 +328,9 @@ script = ExtResource("21_xfrgx")
 id = "443367221"
 login = "iraddev"
 display_name = "iRadDev"
-type = ""
 broadcaster_type = "affiliate"
 description = "My name is Dario, I am an architect and I code and game dev. I'm working on a Tower Defence game with some RTS elements blended into it. You will see map generations, programmer's art in Krita and development in Godot 4. Enjoy!"
 profile_image_url = "https://static-cdn.jtvnw.net/jtv_user_pictures/cceb39b3-01c2-41b2-9309-a9c9697372cb-profile_image-300x300.png"
-offline_image_url = ""
-view_count = 0
-email = ""
 created_at = "2019-06-22T15:18:14Z"
 
 [sub_resource type="Resource" id="Resource_fbx6h"]
@@ -394,13 +338,9 @@ script = ExtResource("21_xfrgx")
 id = "443367221"
 login = "iraddev"
 display_name = "iRadDev"
-type = ""
 broadcaster_type = "affiliate"
 description = "My name is Dario, I am an architect and I code and game dev. I'm working on a Tower Defence game with some RTS elements blended into it. You will see map generations, programmer's art in Krita and development in Godot 4. Enjoy!"
 profile_image_url = "https://static-cdn.jtvnw.net/jtv_user_pictures/cceb39b3-01c2-41b2-9309-a9c9697372cb-profile_image-300x300.png"
-offline_image_url = ""
-view_count = 0
-email = ""
 created_at = "2019-06-22T15:18:14Z"
 
 [sub_resource type="Resource" id="Resource_xmcdg"]
@@ -408,13 +348,9 @@ script = ExtResource("21_xfrgx")
 id = "443367221"
 login = "iraddev"
 display_name = "iRadDev"
-type = ""
 broadcaster_type = "affiliate"
 description = "My name is Dario, I am an architect and I code and game dev. I'm working on a Tower Defence game with some RTS elements blended into it. You will see map generations, programmer's art in Krita and development in Godot 4. Enjoy!"
 profile_image_url = "https://static-cdn.jtvnw.net/jtv_user_pictures/cceb39b3-01c2-41b2-9309-a9c9697372cb-profile_image-300x300.png"
-offline_image_url = ""
-view_count = 0
-email = ""
 created_at = "2019-06-22T15:18:14Z"
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_mhtf1"]
@@ -434,7 +370,7 @@ shader_parameter/far_color = Color(0.5, 0.5, 0.5, 1)
 shader_parameter/near_color = Color(1, 1, 1, 1)
 shader_parameter/particle_texture = ExtResource("23_mhtf1")
 
-[node name="rs_main" type="Control"]
+[node name="rs_main" type="Control" unique_id=153699764]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -446,31 +382,31 @@ theme = ExtResource("1_1q0ot")
 script = ExtResource("1_y2jdm")
 metadata/_edit_lock_ = true
 
-[node name="Modules" type="Node" parent="."]
+[node name="Modules" type="Node" parent="." unique_id=1653085160]
 
-[node name="BufferedHTTPClient" type="Node" parent="Modules"]
+[node name="BufferedHTTPClient" type="Node" parent="Modules" unique_id=756842839]
 unique_name_in_owner = true
 script = ExtResource("11_4dc0s")
 metadata/_custom_type_script = "uid://b7i5j62lmuh71"
 
-[node name="RSMouseTracker" type="Node" parent="Modules"]
+[node name="RSMouseTracker" type="Node" parent="Modules" unique_id=728468139]
 unique_name_in_owner = true
 script = ExtResource("2_xjlao")
 
-[node name="RSMousePass" type="Node" parent="Modules"]
+[node name="RSMousePass" type="Node" parent="Modules" unique_id=2135611448]
 unique_name_in_owner = true
 script = ExtResource("2_4s2fq")
 
-[node name="RSLoader" type="Node" parent="Modules"]
+[node name="RSLoader" type="Node" parent="Modules" unique_id=186749971]
 unique_name_in_owner = true
 script = ExtResource("8_fol3s")
 
-[node name="RSTwitcher" type="Node" parent="Modules"]
+[node name="RSTwitcher" type="Node" parent="Modules" unique_id=902041819]
 unique_name_in_owner = true
 script = ExtResource("5_wye2t")
 metadata/_custom_type_script = "uid://ivai1wov0xyp"
 
-[node name="TwitchService" type="Node" parent="Modules/RSTwitcher"]
+[node name="TwitchService" type="Node" parent="Modules/RSTwitcher" unique_id=2006287304]
 unique_name_in_owner = true
 script = ExtResource("13_xqkml")
 oauth_setting = SubResource("Resource_7gvem")
@@ -478,14 +414,14 @@ scopes = SubResource("Resource_dvryf")
 token = SubResource("Resource_rbl80")
 metadata/_custom_type_script = "uid://i8st3lv0lidh"
 
-[node name="TwitchAPI" type="Node" parent="Modules/RSTwitcher/TwitchService"]
+[node name="TwitchAPI" type="Node" parent="Modules/RSTwitcher/TwitchService" unique_id=2049555632]
 unique_name_in_owner = true
 script = ExtResource("7_rmq2k")
 token = SubResource("Resource_rbl80")
 oauth_setting = SubResource("Resource_7gvem")
 metadata/_custom_type_script = "uid://cw30cwveway65"
 
-[node name="TwitchAuth" type="Node" parent="Modules/RSTwitcher/TwitchService"]
+[node name="TwitchAuth" type="Node" parent="Modules/RSTwitcher/TwitchService" unique_id=1255419003]
 unique_name_in_owner = true
 script = ExtResource("14_isld6")
 oauth_setting = SubResource("Resource_7gvem")
@@ -493,25 +429,25 @@ token = SubResource("Resource_rbl80")
 scopes = SubResource("Resource_dvryf")
 metadata/_custom_type_script = "uid://iv0mgv0lu8b0"
 
-[node name="OAuth" type="Node" parent="Modules/RSTwitcher/TwitchService/TwitchAuth" node_paths=PackedStringArray("token_handler")]
+[node name="OAuth" type="Node" parent="Modules/RSTwitcher/TwitchService/TwitchAuth" unique_id=518084289 node_paths=PackedStringArray("token_handler")]
 script = ExtResource("14_jmoph")
 oauth_setting = SubResource("Resource_7gvem")
 scopes = SubResource("Resource_dvryf")
 token_handler = NodePath("../TokenHandler")
 
-[node name="TokenHandler" type="Node" parent="Modules/RSTwitcher/TwitchService/TwitchAuth"]
+[node name="TokenHandler" type="Node" parent="Modules/RSTwitcher/TwitchService/TwitchAuth" unique_id=1414497627]
 script = ExtResource("15_xfrgx")
 oauth_setting = SubResource("Resource_7gvem")
 token = SubResource("Resource_rbl80")
 
-[node name="TwitchIRC" type="Node" parent="Modules/RSTwitcher/TwitchService"]
+[node name="TwitchIRC" type="Node" parent="Modules/RSTwitcher/TwitchService" unique_id=1146760641]
 unique_name_in_owner = true
 script = ExtResource("15_jmoph")
 setting = SubResource("Resource_ahdki")
 token = SubResource("Resource_rbl80")
 metadata/_custom_type_script = "uid://wkh0l2xsyapj"
 
-[node name="TwitchEventsub" type="Node" parent="Modules/RSTwitcher/TwitchService" node_paths=PackedStringArray("api")]
+[node name="TwitchEventsub" type="Node" parent="Modules/RSTwitcher/TwitchService" unique_id=1044841372 node_paths=PackedStringArray("api")]
 unique_name_in_owner = true
 script = ExtResource("17_stwwt")
 api = NodePath("../TwitchAPI")
@@ -519,14 +455,14 @@ _subscriptions = Array[ExtResource("18_t7nc8")]([SubResource("Resource_frd2u"), 
 scopes = SubResource("Resource_dvryf")
 metadata/_custom_type_script = "uid://blmhj3j00yk45"
 
-[node name="TwitchMediaLoader" type="Node" parent="Modules/RSTwitcher/TwitchService" node_paths=PackedStringArray("api")]
+[node name="TwitchMediaLoader" type="Node" parent="Modules/RSTwitcher/TwitchService" unique_id=492221357 node_paths=PackedStringArray("api")]
 unique_name_in_owner = true
 script = ExtResource("19_vn8cx")
 api = NodePath("../TwitchAPI")
 image_transformer = SubResource("Resource_tsaix")
 metadata/_custom_type_script = "uid://d4lyup0vy1wtu"
 
-[node name="TwitchChat" type="Node" parent="Modules/RSTwitcher" node_paths=PackedStringArray("media_loader", "eventsub", "api")]
+[node name="TwitchChat" type="Node" parent="Modules/RSTwitcher" unique_id=1494664597 node_paths=PackedStringArray("media_loader", "eventsub", "api")]
 unique_name_in_owner = true
 script = ExtResource("25_stwwt")
 broadcaster_user = SubResource("Resource_kuyc8")
@@ -536,53 +472,55 @@ eventsub = NodePath("../TwitchService/TwitchEventsub")
 api = NodePath("../TwitchService/TwitchAPI")
 metadata/_custom_type_script = "uid://dcq1bvfrqimqq"
 
-[node name="TwitchCommandHelp" type="Node" parent="Modules/RSTwitcher" node_paths=PackedStringArray("twitch_api")]
+[node name="TwitchCommandHelp" type="Node" parent="Modules/RSTwitcher" unique_id=1467746602 node_paths=PackedStringArray("twitch_api")]
 script = ExtResource("26_t7nc8")
 twitch_api = NodePath("../TwitchService/TwitchAPI")
 sender_user = SubResource("Resource_xmcdg")
 metadata/_custom_type_script = "uid://ch0rxi1ogjx3q"
 
-[node name="RSUserMng" type="Node" parent="Modules"]
+[node name="RSUserMng" type="Node" parent="Modules" unique_id=725808385]
 unique_name_in_owner = true
 script = ExtResource("12_oh8ps")
 
-[node name="NoOBSWS" type="Node" parent="Modules"]
+[node name="NoOBSWS" type="Node" parent="Modules" unique_id=1567065851]
 unique_name_in_owner = true
 script = ExtResource("6_8c5hc")
 
-[node name="RSShoutoutMng" type="Node" parent="Modules"]
+[node name="RSShoutoutMng" type="Node" parent="Modules" unique_id=675050574]
 unique_name_in_owner = true
 script = ExtResource("8_ex7ik")
 
-[node name="RSCustom" type="Node" parent="Modules"]
+[node name="RSCustom" type="Node" parent="Modules" unique_id=810257539 node_paths=PackedStringArray("video_player", "file_dialog")]
 unique_name_in_owner = true
 script = ExtResource("9_by474")
+video_player = NodePath("../../VideoStreamPlayer")
+file_dialog = NodePath("../../FileDialog")
 
-[node name="sfx_custom" type="AudioStreamPlayer" parent="Modules/RSCustom"]
+[node name="sfx_custom" type="AudioStreamPlayer" parent="Modules/RSCustom" unique_id=1135238179]
 
-[node name="RSVetting" type="Node" parent="Modules"]
+[node name="RSVetting" type="Node" parent="Modules" unique_id=2008771086]
 unique_name_in_owner = true
 script = ExtResource("5_joslx")
 
-[node name="RSDisplay" type="Node" parent="Modules"]
+[node name="RSDisplay" type="Node" parent="Modules" unique_id=1669964691]
 unique_name_in_owner = true
 script = ExtResource("12_qc4sr")
 
-[node name="RSSummaryMng" type="Node" parent="Modules"]
+[node name="RSSummaryMng" type="Node" parent="Modules" unique_id=387312192]
 unique_name_in_owner = true
 script = ExtResource("24_rr657")
 metadata/_custom_type_script = "uid://du1vhw4tu6yv5"
 
-[node name="sfx" type="Node" parent="."]
+[node name="sfx" type="Node" parent="." unique_id=1265654462]
 unique_name_in_owner = true
 
-[node name="quack" type="AudioStreamPlayer" parent="sfx"]
+[node name="quack" type="AudioStreamPlayer" parent="sfx" unique_id=806971000]
 stream = ExtResource("21_637v1")
 
-[node name="discord" type="AudioStreamPlayer" parent="sfx"]
+[node name="discord" type="AudioStreamPlayer" parent="sfx" unique_id=517652264]
 stream = ExtResource("14_38gvb")
 
-[node name="split_chat" type="HSplitContainer" parent="."]
+[node name="split_chat" type="HSplitContainer" parent="." unique_id=1920066784]
 unique_name_in_owner = true
 layout_mode = 1
 anchors_preset = 15
@@ -595,19 +533,19 @@ size_flags_vertical = 3
 mouse_filter = 2
 metadata/_edit_lock_ = true
 
-[node name="empty" type="Control" parent="split_chat"]
+[node name="empty" type="Control" parent="split_chat" unique_id=65593741]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_stretch_ratio = 0.75
 mouse_filter = 2
 metadata/_edit_lock_ = true
 
-[node name="pnl_settings" parent="split_chat/empty" instance=ExtResource("15_8wfva")]
+[node name="pnl_settings" parent="split_chat/empty" unique_id=1895194918 instance=ExtResource("15_8wfva")]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
 
-[node name="pnl_chat" parent="split_chat" instance=ExtResource("16_ege2h")]
+[node name="pnl_chat" parent="split_chat" unique_id=1908141559 instance=ExtResource("16_ege2h")]
 unique_name_in_owner = true
 visible = false
 layout_mode = 2
@@ -616,36 +554,46 @@ size_flags_vertical = 3
 size_flags_stretch_ratio = 0.25
 theme = null
 
-[node name="pnl_summary" parent="." instance=ExtResource("25_ht5xl")]
+[node name="pnl_welcome" parent="." unique_id=1926970611 instance=ExtResource("19_3rcuc")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+metadata/_edit_lock_ = true
+
+[node name="pnl_summary" parent="." unique_id=832781967 instance=ExtResource("25_ht5xl")]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
 
-[node name="physics_scene" parent="." instance=ExtResource("3_d3yde")]
+[node name="physics_scene" parent="." unique_id=1677143213 instance=ExtResource("3_d3yde")]
 unique_name_in_owner = true
 layout_mode = 1
 
-[node name="alert_scene" parent="." instance=ExtResource("19_gj13v")]
+[node name="alert_scene" parent="." unique_id=874195221 instance=ExtResource("19_gj13v")]
 unique_name_in_owner = true
 visible = false
-layout_mode = 2
+layout_mode = 0
 anchors_preset = 0
 anchor_right = 0.0
 anchor_bottom = 0.0
 offset_right = 1152.0
 offset_bottom = 648.0
+grow_horizontal = 1
+grow_vertical = 1
 theme = null
 
-[node name="pnl_notifications" parent="." instance=ExtResource("17_sodyi")]
+[node name="pnl_notifications" parent="." unique_id=1417563843 instance=ExtResource("17_sodyi")]
 unique_name_in_owner = true
 visible = false
-layout_mode = 2
+layout_mode = 0
 anchors_preset = 0
 anchor_left = 1.0
+anchor_bottom = 0.0
 offset_left = -337.0
 grow_horizontal = 0
+grow_vertical = 1
 
-[node name="manadono_snow" type="ColorRect" parent="."]
+[node name="manadono_snow" type="ColorRect" parent="." unique_id=673401312]
 unique_name_in_owner = true
 visible = false
 material = SubResource("ShaderMaterial_mhtf1")
@@ -657,12 +605,12 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="debug_view" parent="." instance=ExtResource("5_j4imi")]
+[node name="debug_view" parent="." unique_id=2089679263 instance=ExtResource("5_j4imi")]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1
 
-[node name="btn_floating_menu" parent="." instance=ExtResource("5_xf57p")]
+[node name="btn_floating_menu" parent="." unique_id=684871075 instance=ExtResource("5_xf57p")]
 unique_name_in_owner = true
 z_index = 100
 z_as_relative = false
@@ -675,3 +623,13 @@ offset_top = 0.0
 offset_right = 32.0
 offset_bottom = 64.0
 grow_horizontal = 2
+
+[node name="VideoStreamPlayer" type="VideoStreamPlayer" parent="." unique_id=1446147872]
+visible = false
+layout_mode = 0
+offset_left = 411.0
+offset_top = 99.0
+offset_right = 1487.0
+offset_bottom = 1025.0
+
+[node name="FileDialog" type="FileDialog" parent="." unique_id=800584398]

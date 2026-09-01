@@ -27,7 +27,7 @@ func print_to_console(_text_from_button: String) -> void:
 
 
 func _process(_d: float) -> void:
-	if not RS.mouse_tracker: return
+	# if not RS.mouse_tracker: return
 	if !is_visible_in_tree(): return
 	
 	lb_mouse_pos.text = "%4d, %4d" % [RS.mouse_tracker.m_pos.x , RS.mouse_tracker.m_pos.y]

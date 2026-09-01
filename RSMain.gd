@@ -25,13 +25,15 @@ static var _log: TwitchLogger = TwitchLogger.new(&"RSMain")
 @onready var vetting: RSVetting = %RSVetting
 @onready var display: RSDisplay = %RSDisplay
 @onready var summary_mng: RSSummaryMng = %RSSummaryMng
+# Created in code (not a scene node): the durable cheer feed from the nivek relay.
+var nivek_relay: RSNivekRelay
 
 # Control nodes
 @onready var btn_floating_menu: RSFloatingMenu = %btn_floating_menu
 @onready var manadono_snow: ColorRect = %manadono_snow
 
 # Panels
-#@onready var pnl_welcome: PanelWelcome = %pnl_welcome
+@onready var pnl_welcome: PanelWelcome = %pnl_welcome
 @onready var pnl_notifications: PanelContainer = %pnl_notifications
 @onready var pnl_chat: RSPnlChat = %pnl_chat
 @onready var pnl_settings: RSPnlSettings = %pnl_settings
@@ -55,23 +57,23 @@ signal all_started
 func _ready() -> void:
 	print_rich("[color=]=================================== RIDICULOS STREAM STARTED ===================================")
 	load_settings()
-	#await welcome_panel_check()
+	await welcome_panel_check()
 	
 	setup_mouse_passthrough()
 	start_everything()
 
 
-#func welcome_panel_check() -> void:
-	#if pnl_welcome.should_show():
-		#get_window().always_on_top = false
-		#RSUtl.fit_and_center_window_to_display(get_window())
-		#btn_floating_menu.hide()
-		#pnl_welcome.start()
-		#await pnl_welcome.completed
-		#settings.welcome_version = ProjectSettings.get_setting("application/config/version")
-		#save_settings()
-	#
-	#pnl_welcome.hide()
+func welcome_panel_check() -> void:
+	if pnl_welcome.should_show():
+		get_window().always_on_top = false
+		RSUtl.fit_and_center_window_to_display(get_window())
+		btn_floating_menu.hide()
+		pnl_welcome.start()
+		await pnl_welcome.completed
+		settings.welcome_version = ProjectSettings.get_setting("application/config/version")
+		save_settings()
+
+	pnl_welcome.hide()
 
 
 func setup_mouse_passthrough():
@@ -108,6 +110,12 @@ func start_everything() -> void:
 	btn_floating_menu.show()
 
 	twitcher.start()
+	# Bring the nivek relay up before the cheer consumers (custom, summary_mng)
+	# connect, so cheer_source() resolves to it when it is configured.
+	nivek_relay = RSNivekRelay.new()
+	nivek_relay.name = &"RSNivekRelay"
+	add_child(nivek_relay)
+	nivek_relay.start()
 	user_mng.start()
 	custom.start()
 	vetting.start()
@@ -125,6 +133,15 @@ func start_everything() -> void:
 			pnl.start()
 	
 	all_started.emit()
+
+
+# The signal source for cheer events: the nivek relay when it is configured
+# (durable replay), otherwise the direct-Twitch path. Both expose
+# `cheered(RSTwitchEventData)`, so exactly one delivers and consumers bind to it.
+func cheer_source() -> Object:
+	if nivek_relay and nivek_relay.is_enabled():
+		return nivek_relay
+	return twitcher
 
 
 # ========================== LOAD/SAVE CONFIG ==================================

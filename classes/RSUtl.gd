@@ -155,16 +155,25 @@ static func get_file_creation_unix(abs_path: String) -> float:
 
 
 static func fit_and_center_window_to_display(p_window: Window) -> void:
-	var current_screen := p_window.current_screen
-	var current_screen_usable_rect := DisplayServer.screen_get_usable_rect(current_screen)
+	var screen := p_window.current_screen
+	var origin := DisplayServer.screen_get_position(screen)
+	if RSDisplay.supports_desktop_overlay():
+		# Window.current_screen is always 0 on Wayland, which may not be the
+		# output the layer surface is bound to. Layer-shell positions are
+		# output-relative, so the origin is (0, 0) of that output — not
+		# screen_get_position() (compositor-global).
+		screen = RSDisplay.overlay_screen_index()
+		origin = Vector2i.ZERO
+	var usable_size := DisplayServer.screen_get_size(screen)
 	var window_size := p_window.size
 	var decorated_size := p_window.get_size_with_decorations()
 	var decorations_size := decorated_size - window_size
-	var target_size_x := mini(current_screen_usable_rect.size.x, decorated_size.x) - decorations_size.x
-	var target_size_y := mini(current_screen_usable_rect.size.y, decorated_size.y) - decorations_size.y
+	var target_size_x := mini(usable_size.x, decorated_size.x) - decorations_size.x
+	var target_size_y := mini(usable_size.y, decorated_size.y) - decorations_size.y
 	var target_size := Vector2i(mini(target_size_x, window_size.x), mini(target_size_y, window_size.y))
 	p_window.size = target_size
-	p_window.position = Vector2(current_screen_usable_rect.position) - (target_size - p_window.get_size_with_decorations()) / 2.0
+	var decorated_after := p_window.get_size_with_decorations()
+	p_window.position = origin + (usable_size - decorated_after) / 2
 
 
 static func resize_img_to_max_dim(img: Image, max_dim: int) -> Image:

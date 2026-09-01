@@ -1,0 +1,82 @@
+From 4a69a086142d28fff66b9eeba11f26fad1d37821 Mon Sep 17 00:00:00 2001
+From: kevin <neonc0in@proton.me>
+Date: Thu, 27 Aug 2026 22:51:51 -0400
+Subject: [PATCH] Give layer-shell surfaces on-demand keyboard focus
+
+Layer surfaces default to keyboard_interactivity=none, and the previous
+bind used protocol v1, which cannot even ask for on_demand. Pointer events
+still arrived through the input region, so Godot's GUI drew a focus ring
+on a LineEdit while wl_keyboard stayed on the last focused toplevel.
+
+Bind v4 (clamped to what the compositor advertises) and set on_demand so
+click-to-focus / click-away works like a normal window. exclusive is not
+used: on the overlay layer it would steal keys from every other client
+for as long as the overlay is mapped.
+---
+ platform/linuxbsd/wayland/wayland_thread.cpp | 23 +++++++++++++++++---
+ platform/linuxbsd/wayland/wayland_thread.h   |  1 +
+ 2 files changed, 21 insertions(+), 3 deletions(-)
+
+diff --git a/platform/linuxbsd/wayland/wayland_thread.cpp b/platform/linuxbsd/wayland/wayland_thread.cpp
+index 71d69aae3d..3d2a2439b1 100644
+--- a/platform/linuxbsd/wayland/wayland_thread.cpp
++++ b/platform/linuxbsd/wayland/wayland_thread.cpp
+@@ -758,7 +758,12 @@ void WaylandThread::_wl_registry_on_global(void *data, struct wl_registry *wl_re
+ 	}
+ 
+ 	if (strcmp(interface, zwlr_layer_shell_v1_interface.name) == 0) {
+-		registry->wlr_layer_shell = (struct zwlr_layer_shell_v1 *)wl_registry_bind(wl_registry, name, &zwlr_layer_shell_v1_interface, 1);
++		// v4 is required for keyboard_interactivity=on_demand. Binding v1 left
++		// layer surfaces at the protocol default (none), so pointer events
++		// reached LineEdits (they showed a focus ring) but keys stayed on the
++		// previously focused client.
++		registry->wlr_layer_shell_version = CLAMP((int)version, 1, 4);
++		registry->wlr_layer_shell = (struct zwlr_layer_shell_v1 *)wl_registry_bind(wl_registry, name, &zwlr_layer_shell_v1_interface, registry->wlr_layer_shell_version);
+ 		registry->wlr_layer_shell_name = name;
+ 		return;
+ 	}
+@@ -1126,6 +1131,7 @@ void WaylandThread::_wl_registry_on_global_remove(void *data, struct wl_registry
+ 		}
+ 
+ 		registry->wlr_layer_shell_name = 0;
++		registry->wlr_layer_shell_version = 0;
+ 
+ 		return;
+ 	}
+@@ -4068,8 +4074,19 @@ void WaylandThread::window_create(DisplayServer::WindowID p_window_id, const Siz
+ 		zwlr_layer_surface_v1_set_anchor(ws.wlr_layer_surface, config.anchor);
+ 		zwlr_layer_surface_v1_set_margin(ws.wlr_layer_surface, 
+ 			config.margin_top, config.margin_right, config.margin_bottom, config.margin_left);
+-		
+-		
++
++		// Default keyboard_interactivity is none: the compositor never assigns
++		// wl_keyboard to this surface. Pointer events still arrive via the input
++		// region, so Godot's GUI can focus a LineEdit while keys go to the
++		// previous app. on_demand (protocol v4) is click-to-focus / click-away,
++		// which is what an overlay with text boxes needs. exclusive would steal
++		// keys from every other client while this overlay is mapped.
++		if (registry.wlr_layer_shell_version >= ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_ON_DEMAND_SINCE_VERSION) {
++			zwlr_layer_surface_v1_set_keyboard_interactivity(ws.wlr_layer_surface, ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_ON_DEMAND);
++		} else {
++			print_line("Wayland layer-shell version < 4; keyboard on_demand unavailable, text boxes will not receive keys");
++		}
++
+ 		decorated = true; // Layer shell handles its own "decoration"
+ 	}
+ 
+diff --git a/platform/linuxbsd/wayland/wayland_thread.h b/platform/linuxbsd/wayland/wayland_thread.h
+index c355fc051a..b1ecf66c7f 100644
+--- a/platform/linuxbsd/wayland/wayland_thread.h
++++ b/platform/linuxbsd/wayland/wayland_thread.h
+@@ -233,6 +233,7 @@ public:
+ 
+ 		struct zwlr_layer_shell_v1 *wlr_layer_shell = nullptr;
+ 		uint32_t wlr_layer_shell_name = 0;
++		uint32_t wlr_layer_shell_version = 0;
+ 
+ 		// We're really not meant to use this one directly but we still need to know
+ 		// whether it's available.
+-- 
+2.43.0
+

@@ -33,6 +33,25 @@ static func supports_desktop_overlay() -> bool:
 	return DisplayServer.has_feature(feature)
 
 
+## Screen the overlay is bound to. Matches display/window/wayland/layer_screen:
+## -1 (default) is the largest output, otherwise an output index. On Wayland,
+## Window.current_screen is hardcoded to 0, which is not necessarily that output.
+static func overlay_screen_index() -> int:
+	var layer_screen := int(ProjectSettings.get_setting("display/window/wayland/layer_screen", -1))
+	var count := DisplayServer.get_screen_count()
+	if layer_screen >= 0 and layer_screen < count:
+		return layer_screen
+	var best := 0
+	var best_area := -1
+	for i in count:
+		var size := DisplayServer.screen_get_size(i)
+		var area := size.x * size.y
+		if area > best_area:
+			best_area = area
+			best = i
+	return best
+
+
 func start() -> void:
 	get_window().mode = Window.MODE_WINDOWED
 	if supports_desktop_overlay():
@@ -76,19 +95,25 @@ func set_borderless_maximized(value: bool):
 	current_window.borderless = value
 	if is_maximized:
 		current_window.mode = Window.MODE_WINDOWED
-		var current_screen := current_window.current_screen
 		# thanks to Foolbox <3 and Giganzo
-		var usable_rect := DisplayServer.screen_get_usable_rect(current_screen)
-		var screen_position := DisplayServer.screen_get_position(current_screen)
+		# Window.current_screen is always 0 on Wayland. Use the same output the
+		# layer surface is bound to (largest, or layer_screen) so size/position
+		# match the monitor the overlay actually lives on.
+		var screen := overlay_screen_index()
+		var screen_size := DisplayServer.screen_get_size(screen)
 
-		_log.i("[RSDisplay] Moving window %d to %s and resizing it to %s" % [
+		# Layer-shell anchors are output-relative. (0, 0) is this output's
+		# top-left. screen_get_position() is compositor-global — 2560,0 for the
+		# ultrawide sitting to the right of another monitor — and the compositor
+		# would treat that as a 2560px offset from the ultrawide's own left edge.
+		_log.i("[RSDisplay] Moving window %d to output-local (0, 0) on screen %d and resizing it to %s" % [
 			current_window.get_window_id(),
-			screen_position,
-			usable_rect.size,
+			screen,
+			screen_size,
 		])
 
-		current_window.size = usable_rect.size
-		current_window.position = screen_position
+		current_window.size = screen_size
+		current_window.position = Vector2i.ZERO
 
 		_log.i("[RSDisplay] Moved window %d to %s and resized it to %s" % [
 			current_window.get_window_id(),
