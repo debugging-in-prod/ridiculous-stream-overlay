@@ -64,14 +64,16 @@ func _ready() -> void:
 
 
 func welcome_panel_check() -> void:
-	if pnl_welcome.should_show():
-		get_window().always_on_top = false
-		RSUtl.fit_and_center_window_to_display(get_window())
-		btn_floating_menu.hide()
-		pnl_welcome.start()
-		await pnl_welcome.completed
-		settings.welcome_version = ProjectSettings.get_setting("application/config/version")
-		save_settings()
+	# Welcome menu temporarily disabled — skip the show path and always hide.
+	# This matches the existing returning-user path (should_show() == false).
+	#if pnl_welcome.should_show():
+		#get_window().always_on_top = false
+		#RSUtl.fit_and_center_window_to_display(get_window())
+		#btn_floating_menu.hide()
+		#pnl_welcome.start()
+		#await pnl_welcome.completed
+		#settings.welcome_version = ProjectSettings.get_setting("application/config/version")
+		#save_settings()
 
 	pnl_welcome.hide()
 
@@ -120,8 +122,9 @@ func start_everything() -> void:
 	custom.start()
 	vetting.start()
 	shoutout_mng.start()
-	if settings.obs_use_module:
-		no_obs_ws.start()
+	# noOBS temporarily disabled — leave the module wired but do not connect.
+	#if settings.obs_use_module:
+		#no_obs_ws.start()
 	btn_floating_menu.start()
 	physic_scene.start()
 	pnl_notifications.start()
