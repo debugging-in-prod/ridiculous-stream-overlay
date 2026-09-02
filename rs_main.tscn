@@ -491,11 +491,13 @@ script = ExtResource("6_8c5hc")
 unique_name_in_owner = true
 script = ExtResource("8_ex7ik")
 
-[node name="RSCustom" type="Node" parent="Modules" unique_id=810257539 node_paths=PackedStringArray("video_player", "file_dialog")]
+[node name="RSCustom" type="Node" parent="Modules" unique_id=810257539 node_paths=PackedStringArray("video_player", "file_dialog", "jumpscare_image", "jumpscare_sfx")]
 unique_name_in_owner = true
 script = ExtResource("9_by474")
 video_player = NodePath("../../VideoStreamPlayer")
 file_dialog = NodePath("../../FileDialog")
+jumpscare_image = NodePath("../../JumpscareLayer/JumpscareImage")
+jumpscare_sfx = NodePath("../../JumpscareLayer/JumpscareSfx")
 
 [node name="sfx_custom" type="AudioStreamPlayer" parent="Modules/RSCustom" unique_id=1135238179]
 
@@ -638,3 +640,20 @@ offset_bottom = 1025.0
 [node name="win_config" parent="." unique_id=1731052049 instance=ExtResource("47_t7nc8")]
 unique_name_in_owner = true
 oversampling_override = 1.0
+
+[node name="JumpscareLayer" type="CanvasLayer" parent="." unique_id=2100000001]
+layer = 128
+visible = false
+
+[node name="JumpscareImage" type="TextureRect" parent="JumpscareLayer" unique_id=2100000002]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="JumpscareSfx" type="AudioStreamPlayer" parent="JumpscareLayer" unique_id=2100000003]

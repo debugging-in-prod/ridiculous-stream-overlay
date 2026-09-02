@@ -6,7 +6,18 @@ static var _log: TwitchLogger = TwitchLogger.new(&"RSCustom")
 const STREAM_OVERLAY_SCENE = "Overlay Stream"
 # const STREAM_OVERLAY_VIDEOS = "Overlay Videos"
 
+# "Jumpscare woman" Bits reward (see jumpscare_woman): a centered image plus a
+# scream, both cut after JUMPSCARE_WOMAN_SECONDS. Assets live under res://local_res.
+const JUMPSCARE_WOMAN_IMAGE := "res://local_res/scary-face-scaled.jpg"
+const JUMPSCARE_WOMAN_SFX := "res://local_res/scream-clipped.ogg"
+const JUMPSCARE_WOMAN_SECONDS := 1
+# Head start the scream gets before the image is shown, to hide its output
+# latency. Bump this up if the sound still trails, down if it now leads.
+const JUMPSCARE_WOMAN_AUDIO_LEAD := 0.05
+
 @export var video_player: VideoStreamPlayer
+@export var jumpscare_image: TextureRect
+@export var jumpscare_sfx: AudioStreamPlayer
 @export var file_dialog: FileDialog
 
 func start():
@@ -26,6 +37,8 @@ func start():
 		RS.nivek_relay.extension_interaction.connect(on_extension_interaction)
 	RS.twitcher.connected_to_twitch.connect(add_commands)
 	RS.twitcher.first_session_message.connect(on_first_session_message)
+	# Warm the jumpscare assets + audio device off the hot path (unawaited).
+	_prime_jumpscare()
 
 func add_commands() -> void:
 	_cmd("add_me", RS.user_mng._on_user_request_add, "Adds you to the known users of the Ridiculous Stream.")
@@ -219,6 +232,9 @@ func on_extension_interaction(data: RSTwitchEventData):
 		# Test product: same behavior as the "!b 69" chat command (69 fake beans).
 		"test_beans":
 			spawn_fake_beans("", null, PackedStringArray(["69"]))
+		# Bits reward: a centered scary image + a scream, both cut after 1.5s.
+		"jumpscare_woman":
+			jumpscare_woman()
 		_:
 			_log.i("Unmapped SKU '%s' -- add a case in on_extension_interaction()" % data.product_sku)
 
@@ -703,6 +719,65 @@ func beer_nye_the_science_guy():
 func _on_beer_nye_finished():
 	video_player.get_parent().visible = false
 	video_player.hide()
+
+
+# "Jumpscare woman" Bits reward: flash a centered image and a scream together,
+# then cut both after JUMPSCARE_WOMAN_SECONDS. The image and sfx live on their own
+# CanvasLayer (JumpscareLayer, layer=128 in rs_main.tscn) so the image sits above
+# every panel; audio ignores visibility, so the player is stopped by hand. A
+# re-trigger while already showing is ignored (same guard shape as let_it_snow).
+#
+# The assets are pre-assigned in _prime_jumpscare() at boot so nothing is loaded
+# or decoded on the hot path -- that decode hitch is what made the scream trail
+# the image. As a fallback (prime skipped because an asset was missing at boot),
+# load them here so the reward still fires.
+func jumpscare_woman() -> void:
+	if not is_instance_valid(jumpscare_image) or not is_instance_valid(jumpscare_sfx):
+		_log.e("Jumpscare woman: image/sfx node not assigned on RSCustom")
+		return
+	if jumpscare_image.get_parent().visible:
+		return
+	if jumpscare_image.texture == null or jumpscare_sfx.stream == null:
+		var tex := ResourceLoader.load(JUMPSCARE_WOMAN_IMAGE) as Texture2D
+		var snd := ResourceLoader.load(JUMPSCARE_WOMAN_SFX) as AudioStream
+		if tex == null or snd == null:
+			_log.e("Jumpscare woman: could not load %s or %s" % [JUMPSCARE_WOMAN_IMAGE, JUMPSCARE_WOMAN_SFX])
+			return
+		jumpscare_image.texture = tex
+		jumpscare_sfx.stream = snd
+	# Kick the scream first and give it a short lead so its output latency is
+	# spent before the image appears -- the two then land together instead of the
+	# sound trailing the image.
+	jumpscare_sfx.play()
+	await get_tree().create_timer(JUMPSCARE_WOMAN_AUDIO_LEAD).timeout
+	jumpscare_image.get_parent().visible = true
+	await get_tree().create_timer(JUMPSCARE_WOMAN_SECONDS).timeout
+	jumpscare_sfx.stop()
+	jumpscare_image.get_parent().visible = false
+
+
+# Preload the jumpscare assets and wake the audio device once at boot. On Linux
+# especially, the very first sound after the app has been idle can lag ~200ms
+# while the audio device resumes -- an inaudible warmup pays that cost here, off
+# stream, so the first real redemption is in sync. Called (unawaited) from start().
+func _prime_jumpscare() -> void:
+	if not is_instance_valid(jumpscare_image) or not is_instance_valid(jumpscare_sfx):
+		return
+	var tex := ResourceLoader.load(JUMPSCARE_WOMAN_IMAGE) as Texture2D
+	var snd := ResourceLoader.load(JUMPSCARE_WOMAN_SFX) as AudioStream
+	if tex == null or snd == null:
+		_log.e("Jumpscare woman: could not preload %s or %s" % [JUMPSCARE_WOMAN_IMAGE, JUMPSCARE_WOMAN_SFX])
+		return
+	jumpscare_image.texture = tex
+	jumpscare_sfx.stream = snd
+	var restore_db := jumpscare_sfx.volume_db
+	jumpscare_sfx.volume_db = -80.0
+	jumpscare_sfx.play()
+	await get_tree().create_timer(0.2).timeout
+	jumpscare_sfx.stop()
+	jumpscare_sfx.volume_db = restore_db
+
+
 func play_smoke_chirp_sound():
 	$sfx_custom.stop()
 	$sfx_custom.stream = ResourceLoader.load("res://local_res/smoke-detector-chirp.ogg") as AudioStream
