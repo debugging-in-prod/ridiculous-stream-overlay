@@ -100,7 +100,14 @@ func _apply_input_regions() -> void:
 		return
 	_last_regions = regions
 	_applies_since_log += 1
-	DisplayServer.window_set_mouse_passthrough_regions(regions)
+	# window_set_mouse_passthrough_regions is a Wayland-only DisplayServer method
+	# from the wlr-layer-shell engine build; stock export templates (Windows, etc.)
+	# do not have it, and GDScript rejects even a direct *reference* to it at parse
+	# time -- which is what breaks the Windows build. This method only runs on the
+	# Wayland input-region path (set_process(_use_input_regions)), so call it
+	# dynamically and no-op where the engine lacks it.
+	if DisplayServer.has_method(&"window_set_mouse_passthrough_regions"):
+		DisplayServer.call(&"window_set_mouse_passthrough_regions", regions)
 
 
 ## Rects of every visible UI control, in window pixels. get_screen_transform()

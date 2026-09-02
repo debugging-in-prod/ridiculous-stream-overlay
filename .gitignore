@@ -20,3 +20,4 @@ startup.txt
 
 # Nivek overlay relay device token (secret). Keep out of the repo.
 nivek_relay.env
+/build/

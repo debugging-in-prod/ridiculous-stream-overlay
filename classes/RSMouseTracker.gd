@@ -26,7 +26,7 @@ func start():
 
 
 func _process(_d) -> void:
-	m_pos = RS.get_global_mouse_position()
+	m_pos = _cursor_in_canvas()
 	is_on_title_bar = is_m_pos_in_title(m_pos)
 	is_on_window_decoration = is_m_pos_on_window_decoration(m_pos)
 	is_on_a_window = is_m_pos_in_window(m_pos)
@@ -38,6 +38,29 @@ func _process(_d) -> void:
 	if is_gui_active != checks:
 		is_gui_active = checks
 		mouse_track_updated.emit(!is_gui_active)
+
+
+# The cursor position the hit-tests run against, in global canvas coordinates --
+# the space RS.get_global_mouse_position() and Control.get_global_rect() share.
+#
+# On the passthrough-toggle platforms (Windows/macOS/X11) the window stops
+# receiving mouse-motion events while it is click-through, so the viewport's
+# last-seen mouse -- what RS.get_global_mouse_position() returns -- freezes at
+# wherever the cursor was when passthrough turned on. The cursor then never
+# "arrives" at the menu, is_gui_active never flips true, and the window is never
+# switched back to interactive: the menu renders but no click lands. Poll the OS
+# cursor instead (live regardless of passthrough) and map its screen pixels back
+# into canvas space with the inverse of the same screen transform RSMousePass
+# applies the forward way when it builds passthrough regions.
+#
+# On Wayland click-through is done with input regions, not this toggle, and that
+# path was validated against get_global_mouse_position(); leave it untouched.
+func _cursor_in_canvas() -> Vector2:
+	if DisplayServer.get_name() == "Wayland":
+		return RS.get_global_mouse_position()
+	var window := get_window()
+	var window_local := Vector2(DisplayServer.mouse_get_position()) - Vector2(window.position)
+	return get_viewport().get_screen_transform().affine_inverse() * window_local
 
 
 func is_pixel_transparent(pos: Vector2) -> bool:

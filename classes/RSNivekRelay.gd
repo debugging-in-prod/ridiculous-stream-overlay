@@ -31,6 +31,10 @@ signal extension_interaction(data: RSTwitchEventData)
 ## an overlay that was closed does not come back to a queue of stale ones.
 signal command_received(data: RSTwitchEventData)
 
+## Emitted whenever the connection state changes (opened, closed, caught up).
+## The config window listens so it can show whether the device token works.
+signal status_changed
+
 static var _log: TwitchLogger = TwitchLogger.new(&"RSNivekRelay")
 
 # Wire protocol (matches cmd/core-api/endpoints/overlay/connect.go +
@@ -78,6 +82,45 @@ func start() -> void:
 	_ws.open_connection()
 
 	_log.i("nivek relay starting -> %s (resuming from seq %d)" % [_url(), _last_seq])
+
+
+## Tears the socket down and starts again, picking up whatever _token() now
+## resolves to. Called after the device token is changed at runtime so the user
+## does not have to restart the overlay.
+func restart() -> void:
+	if _ws != null:
+		# Drop auto_reconnect first, or close() just schedules another attempt
+		# with the old token. remove_child() frees the name for the new socket.
+		_ws.auto_reconnect = false
+		_ws.close()
+		remove_child(_ws)
+		_ws.queue_free()
+		_ws = null
+	_ready_seen = false
+	status_changed.emit()
+	start()
+
+
+## True once the server has replayed up to our cursor and said "ready".
+func is_ready() -> bool:
+	return _ready_seen
+
+
+## Which of the three sources in _token() is actually supplying the token.
+## The settings field is the LOWEST priority, so the config window has to be able
+## to tell the user when an env var or nivek_relay.env is overriding what they
+## typed -- otherwise the field looks broken.
+func token_source() -> String:
+	if not OS.get_environment("NIVEK_DEVICE_TOKEN").strip_edges().is_empty():
+		return "env"
+	if not _env_loaded:
+		_env_cache = _parse_env_file(_ENV_FILE)
+		_env_loaded = true
+	if not str(_env_cache.get("NIVEK_DEVICE_TOKEN", "")).strip_edges().is_empty():
+		return "file"
+	if not RS.settings.nivek_device_token.strip_edges().is_empty():
+		return "settings"
+	return "unset"
 
 
 # Secrets resolution, most secure first:
@@ -154,12 +197,14 @@ func _on_open() -> void:
 		_log.e("failed to send hello: %s" % error_string(err))
 	else:
 		_log.d("sent hello (since=%d)" % _last_seq)
+	status_changed.emit()
 
 
 func _on_closed() -> void:
 	# WebsocketClient reconnects on its own with backoff; _on_open re-sends hello
 	# from the (advanced) cursor, so this is informational.
 	_log.i("nivek relay connection closed; will reconnect")
+	status_changed.emit()
 
 
 func _on_message(bytes: PackedByteArray) -> void:
@@ -174,6 +219,7 @@ func _on_message(bytes: PackedByteArray) -> void:
 		_MSG_READY:
 			_ready_seen = true
 			_log.i("nivek relay caught up (ready) at seq %d" % _last_seq)
+			status_changed.emit()
 		_MSG_EVENT:
 			_handle_event(frame.get("event", {}))
 		_:

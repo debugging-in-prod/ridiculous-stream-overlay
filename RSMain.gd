@@ -149,6 +149,25 @@ func cheer_source() -> Object:
 	return twitcher
 
 
+## Re-points the cheer consumers at whatever cheer_source() now returns.
+## RSCustom and RSSummaryMng bind once in their own start(), so a device token
+## entered after boot would otherwise leave cheers on the path that was live at
+## startup. Idempotent: safe to call whenever the relay is reconfigured.
+func rebind_cheer_source() -> void:
+	var active: Object = cheer_source()
+	var consumers: Array[Callable] = [custom.on_cheered, summary_mng._on_cheered]
+	for source: Object in [twitcher, nivek_relay]:
+		if source == null:
+			continue
+		for consumer: Callable in consumers:
+			var should_bind: bool = source == active
+			var is_bound: bool = source.cheered.is_connected(consumer)
+			if should_bind and not is_bound:
+				source.cheered.connect(consumer)
+			elif not should_bind and is_bound:
+				source.cheered.disconnect(consumer)
+
+
 # ========================== LOAD/SAVE CONFIG ==================================
 func load_settings():
 	# The config file is stored into user:// and only holds the custom data directory

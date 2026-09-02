@@ -198,7 +198,11 @@ func get_t_users(user_ids: Array[String]) -> Array[TwitchUser]:
 	var users: Array[TwitchUser] = []
 	var opt := TwitchGetUsers.Opt.new()
 	opt.id = user_ids
-	var res: TwitchGetUsers.Response = await api.get_users(opt)
+	# Left untyped on purpose: stock GDScript (the export templates) statically
+	# rejects `for x in TwitchGetUsers.Response` and fails to compile the script,
+	# while the patched dev engine defers the check to runtime. Dropping the type
+	# annotation defers it on both, with no behaviour change for the dev runtime.
+	var res = await api.get_users(opt)
 	for user_promise in res:
 		var user: TwitchUser = await user_promise
 		users.append(user)
