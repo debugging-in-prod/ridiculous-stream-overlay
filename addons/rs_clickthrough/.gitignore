@@ -1,0 +1,10 @@
+# The godot-cpp dependency is cloned locally, not vendored.
+godot-cpp/
+
+# SCons build artifacts (the final bin/*.dll / bin/*.so are kept, so the export
+# bundles them -- do not ignore bin/).
+*.os
+*.o
+*.obj
+.sconsign.dblite
+compile_commands.json

@@ -29,6 +29,10 @@ var _use_input_regions := false
 var _click_through := true
 var _last_regions: Array[Rect2i] = []
 
+## Native WS_EX_TRANSPARENT toggler (addons/rs_clickthrough), used on the
+## non-Wayland click-through path. Null when the extension isn't built.
+var _native_clickthrough: RefCounted
+
 ## EXPERIMENT (branch experiment/input-region-churn) -- revert before merging.
 ##
 ## Pins the input region to the whole window instead of tracking the UI rects,
@@ -61,6 +65,16 @@ func _ready() -> void:
 		_log.i("using Wayland input regions for click-through")
 		if PIN_INPUT_REGION_TO_WINDOW:
 			_log.w("EXPERIMENT: input region pinned to the whole window, clicks will not pass through")
+	else:
+		# Non-Wayland (Windows/macOS/X11): toggle real OS click-through via the
+		# rs_clickthrough GDExtension (WS_EX_TRANSPARENT on Windows). Godot's own
+		# FLAG_MOUSE_PASSTHROUGH does not pass clicks through here, and the polygon
+		# clips rendering -- see addons/rs_clickthrough/README.md.
+		if ClassDB.class_exists(&"RSClickThrough"):
+			_native_clickthrough = ClassDB.instantiate(&"RSClickThrough")
+			_log.i("non-Wayland click-through via RSClickThrough (native WS_EX_TRANSPARENT)")
+		else:
+			_log.w("RSClickThrough extension not built -- falling back to FLAG_MOUSE_PASSTHROUGH, which does not pass clicks through on Windows. Build addons/rs_clickthrough (see its README).")
 	set_process(_use_input_regions)
 
 
@@ -72,7 +86,14 @@ func SetClickThrough(clickthrough: bool) -> void:
 		return
 	if _use_input_regions:
 		_apply_input_regions()
+	elif _native_clickthrough:
+		# Real OS click-through: only hit-testing changes, the window keeps
+		# rendering, so effects stay visible.
+		var hwnd := DisplayServer.window_get_native_handle(DisplayServer.WINDOW_HANDLE, get_window().get_window_id())
+		_native_clickthrough.set_click_through(hwnd, clickthrough)
 	else:
+		# Fallback when the extension isn't built: the built-in flag renders fine
+		# but does not pass clicks through on Windows (documented dead end).
 		get_window().set_flag(Window.FLAG_MOUSE_PASSTHROUGH, clickthrough)
 
 

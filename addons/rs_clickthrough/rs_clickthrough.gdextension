@@ -1,0 +1,16 @@
+[configuration]
+
+entry_symbol = "rs_clickthrough_library_init"
+compatibility_minimum = 4.3
+
+[libraries]
+
+; Windows is the only platform that actually needs this (WS_EX_TRANSPARENT).
+windows.debug.x86_64 = "res://addons/rs_clickthrough/bin/librs_clickthrough.windows.template_debug.x86_64.dll"
+windows.release.x86_64 = "res://addons/rs_clickthrough/bin/librs_clickthrough.windows.template_release.x86_64.dll"
+
+; Linux build is a no-op, but must exist so the editor/export on Linux loads the
+; extension without "no library for this platform" errors (RSMousePass only calls
+; it on the non-Wayland path anyway).
+linux.debug.x86_64 = "res://addons/rs_clickthrough/bin/librs_clickthrough.linux.template_debug.x86_64.so"
+linux.release.x86_64 = "res://addons/rs_clickthrough/bin/librs_clickthrough.linux.template_release.x86_64.so"

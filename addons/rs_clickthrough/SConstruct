@@ -1,0 +1,20 @@
+#!/usr/bin/env python
+# Build the rs_clickthrough GDExtension against godot-cpp.
+# Clone godot-cpp into this directory first (see README.md), then:
+#   scons platform=linux   target=template_release
+#   scons platform=windows target=template_release use_mingw=yes
+import os
+
+env = SConscript("godot-cpp/SConstruct")
+
+env.Append(CPPPATH=["src/"])
+sources = Glob("src/*.cpp")
+
+# env["suffix"] is like ".windows.template_release.x86_64"; the resulting name
+# (librs_clickthrough.windows.template_release.x86_64.dll) must match the paths
+# in rs_clickthrough.gdextension.
+libname = "librs_clickthrough"
+target = "bin/{}{}{}".format(libname, env["suffix"], env["SHLIBSUFFIX"])
+
+library = env.SharedLibrary(target, source=sources)
+Default(library)
