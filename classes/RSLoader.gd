@@ -130,10 +130,14 @@ func load_profile_pic_from_url(url: String, use_cached := true) -> ImageTexture:
 
 #region Helpers
 func _profile_pic_cache_path(url: String) -> String:
-	var ext := url.get_extension().to_lower()
-	if not _IMG_SUPPORTED_EXT.has(ext):
-		ext = "png"  # safe fallback if URL has no/odd extension
-	var fname := "%s.%s" % [url.md5_text(), ext]
+	# Always cache as PNG regardless of the source URL's extension. The store
+	# re-encodes the *decoded* texture, and Image.save_jpg() intermittently fails
+	# inside libjpeg-turbo ("Couldn't set jpg quality" -> empty buffer -> FAILED),
+	# spamming engine errors for a non-critical cache write. save_png() is lossless,
+	# handles any decoded format (including alpha), and 300x300 profile pics make
+	# the size difference negligible -- and it routes every store through the
+	# reliable "png" arm of _profile_pic_cache_store_original.
+	var fname := "%s.png" % url.md5_text()
 	return _profile_pic_cache_dir.path_join(fname)
 
 
