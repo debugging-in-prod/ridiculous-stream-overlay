@@ -124,36 +124,6 @@ visible = false
 layout_mode = 2
 metadata/_tab_index = 2
 
-[node name="pnl_twitch_features_api" parent="vb/hb/mrg_right/vb/tabs_welcome"]
-_import_path = NodePath("")
-unique_name_in_owner = true
-process_mode = 0
-process_priority = 0
-process_physics_priority = 0
-process_thread_group = 0
-physics_interpolation_mode = 0
-auto_translate_mode = 0
-editor_description = ""
-visible = false
-layout_mode = 2
-script = null
-metadata/_tab_index = 3
-
-[node name="pnl_twitch_features_eventsub" parent="vb/hb/mrg_right/vb/tabs_welcome"]
-_import_path = NodePath("")
-unique_name_in_owner = true
-process_mode = 0
-process_priority = 0
-process_physics_priority = 0
-process_thread_group = 0
-physics_interpolation_mode = 0
-auto_translate_mode = 0
-editor_description = ""
-visible = false
-layout_mode = 2
-script = null
-metadata/_tab_index = 4
-
 [node name="pnl_twitch_auth_irc" parent="vb/hb/mrg_right/vb/tabs_welcome" instance=ExtResource("11_omwxy")]
 unique_name_in_owner = true
 visible = false

@@ -1,5 +1,6 @@
 @tool
 class_name PanelTwitchDeveloper
+extends PanelContainer
 #extends PanelFormContainer
 
 #var scope_aggregator: ScopeAggregator:

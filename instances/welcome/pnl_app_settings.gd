@@ -1,4 +1,5 @@
 @warning_ignore("missing_tool")
+extends PanelContainer
 #extends PanelFormContainer
 #class_name PnlAppSettings
 #
