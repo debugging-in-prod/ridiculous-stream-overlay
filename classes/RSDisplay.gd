@@ -5,6 +5,9 @@ static var _log: TwitchLogger = TwitchLogger.new(&"RSDisplay")
 
 var is_maximized := false
 
+# Guards _reassert_overlay against re-entering through the size_changed it fires.
+var _reasserting := false
+
 
 ## Whether this platform can present the app as a click-through, always-on-top
 ## desktop overlay.
@@ -56,6 +59,23 @@ func start() -> void:
 	get_window().mode = Window.MODE_WINDOWED
 	if supports_desktop_overlay():
 		set_borderless_maximized(true)
+		# The transparent, screen-sized, always-on-top overlay window can silently
+		# lose its per-pixel alpha: an app taking exclusive fullscreen, a
+		# resolution/refresh change, a monitor sleep-wake or hotplug, or a GPU reset
+		# makes the compositor (DWM on Windows) stop compositing it, and the
+		# viewport's opaque black clear colour then fills the whole screen. These
+		# flags are set once at startup and nothing recovers them on its own, so
+		# re-assert on the two events that mark such a change: the window resizing
+		# (a resolution/monitor change fires size_changed) and the app regaining
+		# focus (fires when a fullscreen app releases). See _reassert_overlay.
+		get_window().size_changed.connect(_on_window_size_changed)
+		# The overlay launches already focused, so the focus-in re-assert never
+		# fires at startup -- and Windows/DWM doesn't fully honour the initial
+		# per-pixel transparency until the window has been realized and a frame
+		# composited, leaving a black bar at the top of the screen until the first
+		# focus change clears it (the same lost-alpha failure, present from launch).
+		# Re-assert once the first frames are out to clear it at startup.
+		_reassert_after_startup()
 	else:
 		set_capture_window()
 	set_app_scale(RS.settings.app_scale)
@@ -124,3 +144,48 @@ func set_borderless_maximized(value: bool):
 
 func set_app_scale(_scale: float) -> void:
 	get_tree().root.content_scale_factor = _scale
+
+
+## Startup fixup for the black bar that sits at the top of the screen until the
+## first focus change: the initial transparency doesn't fully take until the
+## window is realized and composited, and nothing re-asserts at launch because
+## the app starts already focused (so no focus-in notification arrives). Wait for
+## the first frames to go out, then re-assert -- the same operation the focus-in
+## handler performs, which is what a manual focus change relies on to clear it.
+func _reassert_after_startup() -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_reassert_overlay()
+
+
+func _on_window_size_changed() -> void:
+	_reassert_overlay()
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_IN or what == NOTIFICATION_WM_WINDOW_FOCUS_IN:
+		_reassert_overlay()
+
+
+## Re-establishes the desktop-overlay window state (borderless, screen-sized,
+## per-pixel transparent) after something external dropped it -- the failure that
+## leaves the overlay a solid black rectangle covering the screen. A no-op outside
+## overlay mode (capture-window mode has nothing to re-assert), and guarded so the
+## resize set_borderless_maximized performs cannot recurse back in through
+## size_changed.
+func _reassert_overlay() -> void:
+	if not is_maximized or _reasserting:
+		return
+	_reasserting = true
+
+	# Toggling FLAG_TRANSPARENT forces the platform to re-create the layered
+	# per-pixel-alpha window attributes the compositor can drop; the root viewport's
+	# transparent_bg (from project settings) is unaffected and still shows through.
+	# Then restore borderless + geometry on the current output.
+	var w := get_window()
+	w.set_flag(Window.FLAG_TRANSPARENT, false)
+	w.set_flag(Window.FLAG_TRANSPARENT, true)
+	set_borderless_maximized(true)
+
+	_reasserting = false
+	_log.i("[RSDisplay] re-asserted overlay window (transparency + geometry)")
