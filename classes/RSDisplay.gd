@@ -105,20 +105,25 @@ func start() -> void:
 ## apply, so config mode is a readable, clickable screen even if it stays
 ## full-screen.
 func exit_overlay() -> void:
-	is_maximized = false
 	var win := get_window()
-	if win.size_changed.is_connected(_on_window_size_changed):
-		win.size_changed.disconnect(_on_window_size_changed)
 	get_tree().root.transparent_bg = false
 	win.set_flag(Window.FLAG_TRANSPARENT, false)
-	win.always_on_top = false
-	win.borderless = false
-	win.mode = Window.MODE_WINDOWED
-	win.size = Vector2i(960, 660)
-	var screen := overlay_screen_index()
-	var screen_size := DisplayServer.screen_get_size(screen)
-	win.position = DisplayServer.screen_get_position(screen) + (screen_size - win.size) / 2
-	_log.i("[RSDisplay] exited overlay -> config-mode window %s" % win.size)
+	if DisplayServer.get_name() != "Wayland":
+		# Toplevel platforms: shrink to an ordinary decorated window.
+		is_maximized = false
+		if win.size_changed.is_connected(_on_window_size_changed):
+			win.size_changed.disconnect(_on_window_size_changed)
+		win.always_on_top = false
+		win.borderless = false
+		win.mode = Window.MODE_WINDOWED
+		win.size = Vector2i(960, 660)
+		var screen := overlay_screen_index()
+		var screen_size := DisplayServer.screen_get_size(screen)
+		win.position = DisplayServer.screen_get_position(screen) + (screen_size - win.size) / 2
+	# On Wayland the layer surface stays full-screen (resizing it is a no-op that
+	# can break rendering); opaque bg + full input make it a usable config screen
+	# with the config UI centered in it by the caller.
+	_log.i("[RSDisplay] exited overlay -> config mode (%s), window %s" % [DisplayServer.get_name(), win.size])
 
 
 ## Capture-mode presentation: a normal, decorated window at the project's

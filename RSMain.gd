@@ -146,7 +146,15 @@ func start_everything() -> void:
 func enter_config_mode() -> void:
 	mouse_tracker.is_active = false
 	display.exit_overlay()
-	win_config.popup_centered()
+	# Let exit_overlay's geometry settle, then show as a plain visible window with
+	# manual centering -- popup_centered() can auto-dismiss on focus loss at boot
+	# and depends on the parent size being settled.
+	await get_tree().process_frame
+	var parent_size: Vector2i = get_window().size
+	win_config.position = (parent_size - win_config.size) / 2
+	win_config.show()
+	_log.i("[RSMain] config mode: win_config visible=%s pos=%s size=%s parent=%s" % [
+		win_config.visible, win_config.position, win_config.size, parent_size])
 
 
 ## Overlay mode: the transparent, click-through desktop overlay; config hidden.
