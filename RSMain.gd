@@ -144,23 +144,24 @@ func start_everything() -> void:
 ## Config mode: an ordinary opaque window showing the config menu, overlay removed.
 ## The app boots into this; reopened via the floating-menu settings button.
 func enter_config_mode() -> void:
+	# Overlay out of the way: invisible (transparent) and unclickable (full
+	# passthrough), floating menu hidden -- so only the native, movable config
+	# window is visible. Order matters: hide the menu before SetClickThrough so the
+	# passthrough region collector sees no visible UI and passes everything through.
 	mouse_tracker.is_active = false
-	display.exit_overlay()
-	# Let exit_overlay's geometry settle, then show as a plain visible window with
-	# manual centering -- popup_centered() can auto-dismiss on focus loss at boot
-	# and depends on the parent size being settled.
-	await get_tree().process_frame
-	var parent_size: Vector2i = get_window().size
-	win_config.position = (parent_size - win_config.size) / 2
+	btn_floating_menu.hide()
+	get_tree().root.transparent_bg = true
+	get_window().set_flag(Window.FLAG_TRANSPARENT, true)
+	mouse_pass.SetClickThrough(true)
 	win_config.show()
-	_log.i("[RSMain] config mode: win_config visible=%s pos=%s size=%s parent=%s" % [
-		win_config.visible, win_config.position, win_config.size, parent_size])
+	_log.i("[RSMain] config mode: overlay hidden + passthrough; config shown")
 
 
 ## Overlay mode: the transparent, click-through desktop overlay; config hidden.
 ## Entered when the config menu is closed.
 func enter_overlay_mode() -> void:
 	win_config.hide()
+	btn_floating_menu.show()
 	display.start()
 	mouse_tracker.is_active = true
 
