@@ -58,6 +58,13 @@ func connect_to_twitch():
 	if is_connected_to_twitch:
 		connected_to_twitch.emit()
 		_log.i("Connected to Twitch!")
+		# Subscribe to channel.chat.message now that apply_chat_identity() has pointed
+		# TwitchChat at the configured broadcaster (and cleared sender_user). This is
+		# what feeds local chat-command dispatch (TwitchCommand._on_event) and
+		# received_chat_message. Deliberately NOT done via subscribe_on_ready, which
+		# fires in TwitchChat._ready() with the scene's baked (iRadDev) identity still
+		# present -- the bug be3ae8c was working around. subscribe() is idempotent.
+		await twitch_chat.subscribe()
 	else:
 		_log.e("Not Connected to Twitch!")
 

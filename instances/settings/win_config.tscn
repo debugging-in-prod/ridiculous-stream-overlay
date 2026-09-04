@@ -3,91 +3,74 @@
 [ext_resource type="Script" uid="uid://bgan2qbmvgb8n" path="res://instances/settings/win_config.gd" id="1_fkr7n"]
 
 [node name="WinConfig" type="Window" unique_id=1731052049 groups=["UIWindows"]]
+oversampling_override = 1.0
 title = "Overlay Configuration"
-borderless = false
+position = Vector2i(0, 36)
 size = Vector2i(460, 410)
 min_size = Vector2i(420, 370)
-visible = false
 script = ExtResource("1_fkr7n")
 
-[node name="pnl_config" type="PanelContainer" parent="."]
+[node name="pnl_config" type="PanelContainer" parent="." unique_id=1848332733]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="mrg" type="MarginContainer" parent="pnl_config"]
+[node name="mrg" type="MarginContainer" parent="pnl_config" unique_id=1747889479]
 layout_mode = 2
 theme_override_constants/margin_left = 16
 theme_override_constants/margin_top = 16
 theme_override_constants/margin_right = 16
 theme_override_constants/margin_bottom = 16
 
-[node name="vb" type="VBoxContainer" parent="pnl_config/mrg"]
+[node name="vb" type="VBoxContainer" parent="pnl_config/mrg" unique_id=236644938]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="hb_header" type="HBoxContainer" parent="pnl_config/mrg/vb"]
-layout_mode = 2
-
-[node name="lb_title" type="Label" parent="pnl_config/mrg/vb/hb_header"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_font_sizes/font_size = 18
-text = "Overlay Configuration"
-
-[node name="btn_close" type="Button" parent="pnl_config/mrg/vb/hb_header"]
-layout_mode = 2
-tooltip_text = "Close"
-text = "X"
-
-[node name="hs_header" type="HSeparator" parent="pnl_config/mrg/vb"]
-layout_mode = 2
-
-[node name="lb_connection" type="Label" parent="pnl_config/mrg/vb"]
+[node name="lb_connection" type="Label" parent="pnl_config/mrg/vb" unique_id=588188275]
 layout_mode = 2
 text = "peanutbudderbot device token"
 
-[node name="ln_device_token" type="LineEdit" parent="pnl_config/mrg/vb"]
+[node name="ln_device_token" type="LineEdit" parent="pnl_config/mrg/vb" unique_id=1065070836]
 unique_name_in_owner = true
 layout_mode = 2
 placeholder_text = "Paste the device token from peanutbudder.com"
-secret = true
 caret_blink = true
+secret = true
 
-[node name="btn_apply_token" type="Button" parent="pnl_config/mrg/vb"]
+[node name="btn_apply_token" type="Button" parent="pnl_config/mrg/vb" unique_id=283064630]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Save & Reconnect"
 
-[node name="lb_relay_status" type="Label" parent="pnl_config/mrg/vb"]
+[node name="lb_relay_status" type="Label" parent="pnl_config/mrg/vb" unique_id=1488145846]
 unique_name_in_owner = true
 layout_mode = 2
 text = "..."
 autowrap_mode = 3
 
-[node name="hs_1" type="HSeparator" parent="pnl_config/mrg/vb"]
+[node name="hs_1" type="HSeparator" parent="pnl_config/mrg/vb" unique_id=696002908]
 layout_mode = 2
 
-[node name="ck_chat_notifications" type="CheckButton" parent="pnl_config/mrg/vb"]
+[node name="ck_chat_notifications" type="CheckButton" parent="pnl_config/mrg/vb" unique_id=165687912]
 unique_name_in_owner = true
 layout_mode = 2
 tooltip_text = "Play a sound and particle burst when someone chats."
 button_pressed = true
 text = "Chat notifications"
 
-[node name="ck_names_on_screen" type="CheckButton" parent="pnl_config/mrg/vb"]
+[node name="ck_names_on_screen" type="CheckButton" parent="pnl_config/mrg/vb" unique_id=155779669]
 unique_name_in_owner = true
 layout_mode = 2
 tooltip_text = "Drop chatter names into the physics scene."
 button_pressed = true
 text = "Names on screen"
 
-[node name="hs_2" type="HSeparator" parent="pnl_config/mrg/vb"]
+[node name="hs_2" type="HSeparator" parent="pnl_config/mrg/vb" unique_id=377492678]
 layout_mode = 2
 
-[node name="btn_debug" type="Button" parent="pnl_config/mrg/vb"]
+[node name="btn_debug" type="Button" parent="pnl_config/mrg/vb" unique_id=775346233]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Toggle Debug View"
@@ -97,4 +80,3 @@ text = "Toggle Debug View"
 [connection signal="toggled" from="pnl_config/mrg/vb/ck_chat_notifications" to="." method="_on_ck_chat_notifications_toggled"]
 [connection signal="toggled" from="pnl_config/mrg/vb/ck_names_on_screen" to="." method="_on_ck_names_on_screen_toggled"]
 [connection signal="pressed" from="pnl_config/mrg/vb/btn_debug" to="." method="_on_btn_debug_pressed"]
-[connection signal="pressed" from="pnl_config/mrg/vb/hb_header/btn_close" to="." method="hide"]

@@ -54,6 +54,7 @@ func add_commands() -> void:
 	_cmd("irad", play_irad_being_irad, "How it is to be like the streamer?")
 	_cmd("beginning", play_beginning, "Plays \"In the beginning\".")
 	_cmd("yippee", play_yippee, "Plays \"Yippee!\".")
+	_cmd("fart", play_fart, "Plays a random fart sound")
 
 	# These eight now live in peanutbudderbot as global builtins gated on
 	# requires='overlay', and arrive back through the relay as command events.
@@ -156,6 +157,7 @@ func on_channel_points_redeemed(data: RSTwitchEventData) -> void:
 		"Change streamer colour": change_streamer_colour(data.user_input)
 		"Beer Nye!": beer_nye_the_science_guy()
 		"smoke chirp": play_smoke_chirp_sound()
+		"fart": play_fart()
 func on_followed(data: RSTwitchEventData):
 	destructibles_names(data.username)
 func on_raided(data: RSTwitchEventData):
@@ -599,6 +601,14 @@ func play_yippee(
 	$sfx_custom.stream = RS.loader.load_sfx_from_sfx_folder("sfx_yippee.ogg")
 	$sfx_custom.play()
 
+func play_fart(
+			_from_username: String = "",
+			_info: TwitchCommandInfo = null,
+			_args: PackedStringArray = []
+		) -> void:
+	$sfx_custom.stop()
+	$sfx_custom.stream = RS.loader.load_random_fart()
+	$sfx_custom.play()
 
 func nuke(
 			_from_username: String = "",
