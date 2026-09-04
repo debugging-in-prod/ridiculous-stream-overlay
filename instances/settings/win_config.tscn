@@ -4,7 +4,7 @@
 
 [node name="WinConfig" type="Window" unique_id=1731052049 groups=["UIWindows"]]
 title = "Overlay Configuration"
-borderless = true
+borderless = false
 size = Vector2i(460, 410)
 min_size = Vector2i(420, 370)
 visible = false

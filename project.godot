@@ -42,6 +42,7 @@ window/size/transparent=true
 window/wayland/layer=4
 window/stretch/scale=1.6
 window/per_pixel_transparency/allowed=true
+window/subwindows/embed_subwindows=false
 display_server/driver.linuxbsd="wayland"
 
 [editor_plugins]
