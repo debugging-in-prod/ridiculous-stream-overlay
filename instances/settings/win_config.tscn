@@ -28,6 +28,25 @@ theme_override_constants/margin_bottom = 16
 layout_mode = 2
 theme_override_constants/separation = 8
 
+[node name="lb_twitch_login" type="Label" parent="pnl_config/mrg/vb"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Twitch chat: (not configured)"
+
+[node name="btn_connect_twitch" type="Button" parent="pnl_config/mrg/vb"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Connect with Twitcher"
+
+[node name="lb_twitch_status" type="Label" parent="pnl_config/mrg/vb"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "..."
+autowrap_mode = 3
+
+[node name="hs_twitch" type="HSeparator" parent="pnl_config/mrg/vb"]
+layout_mode = 2
+
 [node name="lb_connection" type="Label" parent="pnl_config/mrg/vb" unique_id=588188275]
 layout_mode = 2
 text = "peanutbudderbot device token"
@@ -75,6 +94,7 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "Toggle Debug View"
 
+[connection signal="pressed" from="pnl_config/mrg/vb/btn_connect_twitch" to="." method="_on_btn_connect_twitch_pressed"]
 [connection signal="text_submitted" from="pnl_config/mrg/vb/ln_device_token" to="." method="_on_ln_device_token_text_submitted"]
 [connection signal="pressed" from="pnl_config/mrg/vb/btn_apply_token" to="." method="_on_btn_apply_token_pressed"]
 [connection signal="toggled" from="pnl_config/mrg/vb/ck_chat_notifications" to="." method="_on_ck_chat_notifications_toggled"]
