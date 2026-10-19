@@ -42,6 +42,9 @@ func load_sfx_from_sfx_folder(sfx_name: String) -> AudioStream:
 	if audio_cache.has(sfx_name):
 		return audio_cache[sfx_name]
 	var audio: AudioStream
+	print(RSSettings.LOCAL_RES_FOLDER)
+	print(sfx_name)
+	print(RSSettings.LOCAL_RES_FOLDER + sfx_name)
 	if ResourceLoader.exists(RSSettings.LOCAL_RES_FOLDER + sfx_name):
 		audio = ResourceLoader.load(RSSettings.LOCAL_RES_FOLDER + sfx_name)
 	else:

@@ -32,7 +32,6 @@ func start():
 	# Custom Power-ups exist only on the relay -- twitcher has no equivalent event.
 	if RS.nivek_relay:
 		RS.nivek_relay.power_up_redeemed.connect(on_power_up)
-		RS.nivek_relay.command_received.connect(on_relay_command)
 		# Twitch Extension Bits interactions -- relay-only, like power-ups.
 		RS.nivek_relay.extension_interaction.connect(on_extension_interaction)
 	RS.twitcher.connected_to_twitch.connect(add_commands)
@@ -44,6 +43,7 @@ func add_commands() -> void:
 	_cmd("add_me", RS.user_mng._on_user_request_add, "Adds you to the known users of the Ridiculous Stream.")
 	_cmd("discord", discord, "Get an invite to the best discord server ever, with so many channels!")
 	_cmd("c_source", c_source, "Get a link to Finisfine voice acting master class.")
+	_cmd("knock", knock, "knock")
 	_cmd("pandano", pandano, "Complain about pandacoder with our truly Jern!")
 	_cmd("whostream", whostream, "Shows who, in the known users, is streaming at the moment.")
 	_cmd("d", play_discord_notification, "Plays a discord notification.")
@@ -55,22 +55,16 @@ func add_commands() -> void:
 	_cmd("beginning", play_beginning, "Plays \"In the beginning\".")
 	_cmd("yippee", play_yippee, "Plays \"Yippee!\".")
 	_cmd("fart", play_fart, "Plays a random fart sound")
+	_cmd("twist_it", play_twist_it, "Plays twist it sound effect")
 
-	# These eight now live in peanutbudderbot as global builtins gated on
-	# requires='overlay', and arrive back through the relay as command events.
-	# Register them locally ONLY when the relay is not configured, so a
-	# standalone overlay still works and a relayed one does not answer twice.
-	# Same shape as RSMain.cheer_source(): exactly one path is live.
-	if not (RS.nivek_relay and RS.nivek_relay.is_enabled()):
-		_log.i("nivek relay not configured -- registering overlay commands locally")
-		_cmd("b", spawn_fake_beans, "Those beans are fake!", 0, 1)
-		_cmd("n", add_name_to_scene, "Add your smol name to the stream.")
-		_cmd("shake", shake_bodies, "These beans on stream need shaking!")
-		_cmd("snow", let_it_snow, "Manadono has snow on stream, we have our snow at home!")
-		_cmd("laser", laser, "Laseeeeeeerrsss!", 0, 1)
-		_cmd("nuke", nuke, "Too many beans, too many...")
-		_cmd("zeroG", zero_g, "Beans in space!", 0, -1, ["zerog", "0g", "0G"])
-		_cmd("g", spawn_grenade, "Spawn grenades on stream", 0, 1, ["grenade", "granade", "grandma", "grenades"])
+	_cmd("b", spawn_fake_beans, "Those beans are fake!", 0, 1)
+	_cmd("n", add_name_to_scene, "Add your smol name to the stream.")
+	_cmd("shake", shake_bodies, "These beans on stream need shaking!")
+	_cmd("snow", let_it_snow, "Manadono has snow on stream, we have our snow at home!")
+	_cmd("laser", laser, "Laseeeeeeerrsss!", 0, 1)
+	_cmd("nuke", nuke, "Too many beans, too many...")
+	_cmd("zeroG", zero_g, "Beans in space!", 0, -1, ["zerog", "0g", "0G"])
+	_cmd("g", spawn_grenade, "Spawn grenades on stream", 0, 1, ["grenade", "granade", "grandma", "grenades"])
 
 	#RS.twitcher.add_command("tts", parse_tts_command, 1, 256)
 	#RS.twitcher.add_command("tts_gb", parse_tts_command.bind("en_GB"), 1, 256)
@@ -221,6 +215,8 @@ func on_power_up(data: RSTwitchEventData):
 			spawn_fake_beans("", null, PackedStringArray(["69"]))
 			spawn_fake_beans("", null, PackedStringArray(["69"]))
 			spawn_fake_beans("", null, PackedStringArray(["69"]))
+		"jumpscare":
+			jumpscare_woman()
 		_:
 			_log.i("Unmapped power-up '%s' -- add a case in on_power_up()" % data.power_up_title)
 
@@ -360,6 +356,14 @@ func c_source(
 	var msg = "Check out Trickylady first published game with finisfine special guest: https://trickylady.itch.io/the-exam-scam"
 	RS.twitcher.chat(msg)
 
+func knock(
+		_from_username: String = "",
+		_info: TwitchCommandInfo = null,
+		_args: PackedStringArray = []
+	) -> void:
+	$sfx_custom.stop()
+	$sfx_custom.stream = RS.loader.load_sfx_from_sfx_folder("knock.mp3")
+	$sfx_custom.play()
 
 func beans(username: String) -> void:
 	#if RS.physic_scene.is_closing: return
@@ -608,6 +612,15 @@ func play_fart(
 		) -> void:
 	$sfx_custom.stop()
 	$sfx_custom.stream = RS.loader.load_random_fart()
+	$sfx_custom.play()
+
+func play_twist_it(
+			_from_username: String = "",
+			_info: TwitchCommandInfo = null,
+			_args: PackedStringArray = []
+	) -> void:
+	$sfx_custom.stop()
+	$sfx_custom.stream = RS.loader.load_sfx_from_sfx_folder("twist-it/dick-twist.mp3")
 	$sfx_custom.play()
 
 func nuke(
