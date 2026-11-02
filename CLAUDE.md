@@ -1,41 +1,39 @@
 # CLAUDE.md
 
-Ridiculous Stream: a transparent, click-through Godot overlay for Twitch streams (Linux fork).
+Ridiculous Stream: a transparent, click-through Godot overlay for Twitch streams. It has to work on **Windows and Linux** alike.
 
 ## Engine and language
-- Godot **4.6** (`config/features` in `project.godot`); LINUX.md was tested on 4.6.1. Renderer `gl_compatibility`, physics `Rapier2D` (`addons/godot-rapier2d`).
-- **GDScript only.** No tracked `.cs` files; the old `RSMousePass.cs` was ported to GDScript, so a stock (non-.NET) Godot works. `Ridiculous Stream.csproj.old*` are leftovers.
-- Native C++ only in `addons/rs_clickthrough/` (GDExtension, Windows click-through; Linux build is a no-op stub). Prebuilt binaries in its `bin/`; rebuild steps in its README.
-- Autoload `RS` = `rs_main.tscn` (script `RSMain.gd`). Core classes in `classes/`, scenes and panels in `instances/`.
+- Godot **4.6** (`config/features` in `project.godot`). Renderer `gl_compatibility`, physics `Rapier2D` (`addons/godot-rapier2d`).
+- **GDScript only.** There is no C# on main, so a stock (non-.NET) Godot works. The upstream project, https://github.com/iRadEntertainment/ridiculous-stream-overlay, has a C# version. Treat it as a reference only.
+- Native C++ only in `addons/rs_clickthrough/` (GDExtension for Windows click-through; the Linux build is a no-op stub). Rebuild steps are in its README.
+- Autoload `RS` = `rs_main.tscn` (script `RSMain.gd`). Core classes are in `classes/`, scenes and panels in `instances/`, OBS WebSocket code in `lib/no-obs-ws/`.
 
 ## Running
-- There is no `start.sh` and no root `README.md` in this repo. Open the project in the Godot editor, or run:
-  `<godot-binary> --path /path/to/repo`
-- On Wayland, overlay behaviour (always-on-top, click-through) needs the patched engine: apply `godot-patches/*.patch` to `4.6.1-stable` (see `godot-patches/README.md`). On a stock Godot it falls back to an ordinary window for OBS capture.
-- `project.godot` forces `display_server/driver.linuxbsd="wayland"` and `window/wayland/layer=4` (Overlay).
+- Open `project.godot` in the Godot editor, run `<godot-binary> --path <repo>`, or use an exported build.
+- `start.sh` is a gitignored local Linux helper for an experimental engine build. It is not in the repo, so don't reference it or rely on it.
+- For setup (Twitch, OBS, plugins, user data) see `README.md`. Parts of it are stale: it predates the GDScript port and still mentions .NET, `.csproj` and `RSMousePass.cs`.
+- `editorscriptmanager` and `ridiculous_coding` are enabled in `project.godot` but gitignored. Disable them locally if they're missing.
+- Linux/Wayland details, including the patched-engine overlay, are in `LINUX.md` and `godot-patches/README.md`.
 
 ## nivek relay (`classes/RSNivekRelay.gd`)
-- Websocket client created in code by `RSMain.start_everything()`. Sends a `hello` frame `{token, since}`, then replays events after the persisted cursor (`user://nivek_relay_cursor.txt`) and waits for `ready`.
-- Event kinds: `cheer`, `power_up`, `extension`, `command`. `redemption` is received but ignored; redemptions stay on Twitch EventSub. Commands are live only and never replayed.
-- Config: `cp nivek_relay.env.example nivek_relay.env` and fill in `NIVEK_DEVICE_TOKEN` (gitignored, never commit). Optional `NIVEK_RELAY_URL`, which defaults to `wss://peanutbudderbot.com/api/overlay/connect`.
-- Token lookup order: OS env var, then `res://nivek_relay.env`, then `RS.settings.nivek_device_token` (set from the config window, `instances/settings/win_config.gd`).
-- If no token is set, the relay is disabled and `RS.cheer_source()` falls back to `RSTwitcher` for cheers.
+- Websocket client created by `RSMain.start_everything()`. It replays events after the cursor in `user://nivek_relay_cursor.txt`.
+- Config: `cp nivek_relay.env.example nivek_relay.env` (gitignored, never commit). Token lookup order: OS env, `res://nivek_relay.env`, then `RS.settings`. With no token the relay is disabled and `RS.cheer_source()` falls back to Twitch.
 
 ## Twitch (`classes/RSTwitcher.gd`, `addons/twitcher`)
-- Uses the twitcher addon: `TwitchEventsub`, `TwitchChat`, `TwitchIRC`. It connects on start if `settings.auto_connect` is set.
-- `client_id`/`client_secret` come from `RSSettings` (user data dir), not the scene. The credentials baked into `rs_main.tscn` can't be decrypted on other machines. That failure is silent: you get "Connected to Twitch!" and then a reconnect loop on EventSub 4003.
-- OAuth token files `twitch_oauth_setting.tres` and `twitch_oauth_token.tres` are gitignored.
+- Credentials come from `RSSettings` (user data dir), not the scene. The secret baked into `rs_main.tscn` is encrypted per install and can't be decrypted elsewhere. That failure is silent: EventSub reconnects in a loop with code 4003 (see comments in `RSTwitcher.gd`).
+- OAuth files `twitch_oauth_setting.tres` and `twitch_oauth_token.tres` are gitignored.
 
 ## Effects
-- Reward, command and power-up dispatch is in `classes/RSCustom.gd`: `on_channel_points_redeemed`, `on_relay_command`, `on_power_up`, `on_extension_interaction`.
-- Jumpscare: `RSCustom.jumpscare_woman()`, triggered by extension SKU `jumpscare_woman`. Assets are `local_res/scary-face-scaled.jpg` and `local_res/scream-clipped.ogg`. Nodes live under `JumpscareLayer` (CanvasLayer 128) in `rs_main.tscn`.
-- Physics objects are in `instances/objects/` (grenade, laser emitter, etc.) and `instances/physics_scene.gd`. Shaders are in `shaders/`.
+- Dispatch is in `classes/RSCustom.gd`: `on_channel_points_redeemed`, `on_relay_command`, `on_power_up`, `on_extension_interaction`.
+- Example: `RSCustom.jumpscare_woman()` (extension SKU `jumpscare_woman`) uses `local_res/scary-face-scaled.jpg` and `local_res/scream-clipped.ogg`. Media lives in `local_res/`.
+- Physics objects are in `instances/objects/` and `instances/physics_scene.gd`. Shaders are in `shaders/`.
 
-## Gotchas (from LINUX.md)
-- Stock Godot's Wayland backend silently ignores passthrough, position and always-on-top, but `get_flag()`/`position` still read back the value you set.
-- Wayland click-through uses input regions (`window_set_mouse_passthrough_regions`, patched engine only). `%split_chat` is in the `UI` group on purpose, so be careful with it.
-- Layer-shell `Window.position` is output-relative. `RSDisplay` and `RSUtl.fit_and_center_window_to_display()` use `(0,0)` on the patched engine.
-- `RSDisplay.supports_desktop_overlay()` detects the patched engine via `ClassDB.class_has_integer_constant(...)`. Keep it that way so the project still runs on a stock Godot.
-- User data dir differs between a native build (`~/.local/share/godot/app_userdata/Ridiculous Stream/`) and the Flatpak. `settings.tres` holds the OBS WebSocket password and is created world-readable, so `chmod 600` it.
-- `NoOBSWS` and `RSCustom` hardcode OBS source and scene names (`Mic/Aux`, `Brave`, `main_desk`/`Blur`, `Overlay Stream`/`BRB_text`). Missing names only log a warning.
-- GNOME Wayland has no layer-shell support. A strip under the desktop panel isn't covered.
+## Windows gotchas
+- `addons/rs_clickthrough/bin/*.dll` / `*.so` **must be committed**, or exports won't include them. Without the DLL, `RSMousePass` falls back to `FLAG_MOUSE_PASSTHROUGH`, which doesn't pass clicks through on Windows.
+- Never reference Wayland-only `DisplayServer` methods directly (e.g. `window_set_mouse_passthrough_regions`). Stock templates lack them, and GDScript rejects the reference at parse time, which breaks the Windows build. Guard them with `has_method` + `call`, as `classes/RSMousePass.gd` does.
+- DWM can drop the overlay's per-pixel alpha after a fullscreen app, a resolution change or sleep/wake, and it also leaves a black bar at startup. `classes/RSDisplay.gd` works around this by re-asserting `FLAG_TRANSPARENT` on resize, on focus, and after startup. Keep that in place.
+- Keep `RSDisplay.supports_desktop_overlay()` detecting the patched engine via `ClassDB.class_has_integer_constant(...)`, so stock Godot (Windows included) still runs.
+
+## Other gotchas
+- `lib/no-obs-ws/NoOBSWS.gd` and `RSCustom.gd` hardcode OBS source and scene names. Missing names only log a warning.
+- `settings.tres` in the user data dir can hold credentials. Never commit or print it.
