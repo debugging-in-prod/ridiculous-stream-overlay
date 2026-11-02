@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Ridiculous Stream: a transparent, click-through Godot overlay for Twitch streams (Linux fork).
+Ridiculous Stream: a transparent, click-through Godot overlay for Twitch streams. It is meant to run on **Windows as much as on Linux**; don't make changes that only work on one. `LINUX.md` is the Linux-specific doc.
 
 ## Engine and language
 - Godot **4.6** (`config/features` in `project.godot`); LINUX.md was tested on 4.6.1. Renderer `gl_compatibility`, physics `Rapier2D` (`addons/godot-rapier2d`).
@@ -9,8 +9,8 @@ Ridiculous Stream: a transparent, click-through Godot overlay for Twitch streams
 - Autoload `RS` = `rs_main.tscn` (script `RSMain.gd`). Core classes in `classes/`, scenes and panels in `instances/`.
 
 ## Running
-- There is no `start.sh` and no root `README.md` in this repo. Open the project in the Godot editor, or run:
-  `<godot-binary> --path /path/to/repo`
+- On either OS: open `project.godot` in the Godot 4.6 editor and run it, or run `<godot-binary> --path <repo>`. For a standalone build, export from the editor (no `export_presets.cfg` is tracked, so create the preset locally).
+- No shell scripts are tracked (no `start.sh`/`run.sh`, no root `README.md`). Any such script is a Linux-only convenience, not the primary way to run it. The `build-windows-zip.sh` mentioned in `addons/rs_clickthrough/README.md` is not in the repo.
 - On Wayland, overlay behaviour (always-on-top, click-through) needs the patched engine: apply `godot-patches/*.patch` to `4.6.1-stable` (see `godot-patches/README.md`). On a stock Godot it falls back to an ordinary window for OBS capture.
 - `project.godot` forces `display_server/driver.linuxbsd="wayland"` and `window/wayland/layer=4` (Overlay).
 
@@ -39,3 +39,8 @@ Ridiculous Stream: a transparent, click-through Godot overlay for Twitch streams
 - User data dir differs between a native build (`~/.local/share/godot/app_userdata/Ridiculous Stream/`) and the Flatpak. `settings.tres` holds the OBS WebSocket password and is created world-readable, so `chmod 600` it.
 - `NoOBSWS` and `RSCustom` hardcode OBS source and scene names (`Mic/Aux`, `Brave`, `main_desk`/`Blur`, `Overlay Stream`/`BRB_text`). Missing names only log a warning.
 - GNOME Wayland has no layer-shell support. A strip under the desktop panel isn't covered.
+
+## Windows gotchas (from code comments and `addons/rs_clickthrough/README.md`)
+- `FLAG_MOUSE_PASSTHROUGH` does not pass clicks through on Windows. Real click-through needs `rs_clickthrough` (`WS_EX_TRANSPARENT`); without the DLL, `RSMousePass` logs a warning and falls back. The `bin/*.dll` files must be committed so the export bundles them beside the exe.
+- Don't reference Wayland-only `DisplayServer` methods directly (e.g. `window_set_mouse_passthrough_regions`). Stock Windows templates lack them and GDScript fails at parse time, which breaks the Windows build. Use `has_method()` + `call()` as `RSMousePass` does.
+- DWM can drop the overlay's per-pixel alpha (fullscreen apps, resolution change, sleep/wake), which shows up as black fill or a black bar at launch. `RSDisplay` re-asserts transparency on resize, focus-in and shortly after startup.
