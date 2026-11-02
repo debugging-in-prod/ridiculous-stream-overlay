@@ -1,6 +1,9 @@
 extends Window
 class_name RSWinConfig
 
+@onready var lb_twitch_login: Label = %lb_twitch_login
+@onready var btn_connect_twitch: Button = %btn_connect_twitch
+@onready var lb_twitch_status: Label = %lb_twitch_status
 @onready var ln_device_token: LineEdit = %ln_device_token
 @onready var lb_relay_status: Label = %lb_relay_status
 @onready var ck_chat_notifications: CheckButton = %ck_chat_notifications
@@ -21,6 +24,13 @@ func start() -> void:
 	if RS.nivek_relay:
 		RS.nivek_relay.status_changed.connect(refresh_relay_status)
 	refresh_relay_status()
+	# Reflect the Twitch connection: which login's chat we'll subscribe to
+	# (RS.settings.broadcaster_name -- see RSTwitcher.apply_chat_identity) and
+	# whether we're connected. connected_to_twitch fires when a connect succeeds
+	# (manual button or auto_connect), so keep the status label in sync with it.
+	RS.twitcher.connected_to_twitch.connect(refresh_twitch_status)
+	refresh_twitch_identity()
+	refresh_twitch_status()
 
 
 func toggle() -> void:
@@ -29,6 +39,38 @@ func toggle() -> void:
 	else:
 		refresh_relay_status()
 		popup_centered()
+
+
+#region Twitch connection
+func _on_btn_connect_twitch_pressed() -> void:
+	btn_connect_twitch.disabled = true
+	lb_twitch_status.text = "Connecting..."
+	# connect_to_twitch() applies the chat identity, runs the OAuth setup, and
+	# (via the fix in RSTwitcher) subscribes to channel.chat.message so local
+	# chat commands work. It is idempotent enough to re-run from this button.
+	await RS.twitcher.connect_to_twitch()
+	btn_connect_twitch.disabled = false
+	refresh_twitch_identity()
+	refresh_twitch_status()
+
+
+## Shows the Twitch login whose chat will be connected -- the broadcaster the
+## overlay subscribes to (RS.settings.broadcaster_name).
+func refresh_twitch_identity() -> void:
+	if not is_node_ready():
+		return
+	var login: String = RS.settings.broadcaster_name
+	if login.is_empty():
+		lb_twitch_login.text = "Twitch chat: (no account configured)"
+	else:
+		lb_twitch_login.text = "Twitch chat: %s" % login
+
+
+func refresh_twitch_status() -> void:
+	if not is_node_ready():
+		return
+	lb_twitch_status.text = "Connected." if RS.twitcher.is_connected_to_twitch else "Not connected."
+#endregion
 
 
 #region Device token

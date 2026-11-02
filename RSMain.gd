@@ -85,8 +85,6 @@ func setup_mouse_passthrough():
 	for control: Control in ui_elements:
 		control.add_to_group("UI")
 	mouse_tracker.mouse_track_updated.connect(mouse_pass.SetClickThrough)
-	mouse_tracker.start()
-	mouse_pass.SetClickThrough(true)
 	debug_view.start()
 
 
@@ -106,9 +104,6 @@ func get_all_control_nodes(node_to_search: Node, found: Array[Control] = []) -> 
 
 func start_everything() -> void:
 	await Engine.get_main_loop().process_frame
-	get_window().always_on_top = display.supports_desktop_overlay()
-	
-	display.start()
 
 	btn_floating_menu.show()
 
@@ -136,8 +131,39 @@ func start_everything() -> void:
 	for pnl: Control in pnls_to_start:
 		if pnl.has_method("start"):
 			pnl.start()
-	
+
+	# Config-first: open showing the config menu on an ordinary window; apply the
+	# transparent overlay only when the config is closed, and remove it again
+	# whenever the config is reopened. See enter_config_mode/enter_overlay_mode.
+	win_config.close_requested.connect(enter_overlay_mode)
+	enter_config_mode()
+
 	all_started.emit()
+
+
+## Config mode: an ordinary opaque window showing the config menu, overlay removed.
+## The app boots into this; reopened via the floating-menu settings button.
+func enter_config_mode() -> void:
+	# Overlay out of the way: invisible (transparent) and unclickable (full
+	# passthrough), floating menu hidden -- so only the native, movable config
+	# window is visible. Order matters: hide the menu before SetClickThrough so the
+	# passthrough region collector sees no visible UI and passes everything through.
+	mouse_tracker.is_active = false
+	btn_floating_menu.hide()
+	get_tree().root.transparent_bg = true
+	get_window().set_flag(Window.FLAG_TRANSPARENT, true)
+	mouse_pass.SetClickThrough(true)
+	win_config.show()
+	_log.i("[RSMain] config mode: overlay hidden + passthrough; config shown")
+
+
+## Overlay mode: the transparent, click-through desktop overlay; config hidden.
+## Entered when the config menu is closed.
+func enter_overlay_mode() -> void:
+	win_config.hide()
+	btn_floating_menu.show()
+	display.start()
+	mouse_tracker.is_active = true
 
 
 # The signal source for cheer events: the nivek relay when it is configured
@@ -181,7 +207,7 @@ func load_settings():
 			_log.e("Failed to load global configuration from %s: %d" % [RSSettings._CONFIG_PATH, error])
 	else:
 		var error := RSSettings._config.save(RSSettings._CONFIG_PATH)
-		if OK != RSSettings._config.save(RSSettings._CONFIG_PATH):
+		if error != OK:
 			_log.e("Failed to save global configuration from %s: %d" % [RSSettings._CONFIG_PATH, error])
 
 	_log.i("Loading settings from %s..." % RSSettings.data_dir)

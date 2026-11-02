@@ -130,7 +130,7 @@ func _on_btn_user_list_pressed() -> void:
 	RS.pnl_settings.open_tab(1)
 	RS.pnl_settings.visible = !RS.pnl_settings.visible
 func _on_btn_settings_v2_pressed() -> void:
-	RS.win_config.toggle()
+	RS.enter_config_mode()
 #endregion
 
 

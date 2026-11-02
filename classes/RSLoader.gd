@@ -42,6 +42,9 @@ func load_sfx_from_sfx_folder(sfx_name: String) -> AudioStream:
 	if audio_cache.has(sfx_name):
 		return audio_cache[sfx_name]
 	var audio: AudioStream
+	print(RSSettings.LOCAL_RES_FOLDER)
+	print(sfx_name)
+	print(RSSettings.LOCAL_RES_FOLDER + sfx_name)
 	if ResourceLoader.exists(RSSettings.LOCAL_RES_FOLDER + sfx_name):
 		audio = ResourceLoader.load(RSSettings.LOCAL_RES_FOLDER + sfx_name)
 	else:
@@ -54,6 +57,32 @@ func load_sfx_from_sfx_folder(sfx_name: String) -> AudioStream:
 	audio_cache[sfx_name] = audio
 	return audio
 
+var _fart_files: PackedStringArray = [] # cached directory listing
+func load_random_fart() -> AudioStream:
+	if _fart_files.is_empty():
+		var dir := DirAccess.open(RSSettings.LOCAL_RES_FOLDER + "farts/")
+		if dir == null:
+			push_error("could not open farts folder")
+			return null
+		for filename in dir.get_files():
+			if filename.get_extension().to_lower() in ["ogg", "mp3"]:
+				_fart_files.append(filename)
+	
+	if _fart_files.is_empty():
+		return null
+
+	var sfx_name: String = _fart_files[randi() % _fart_files.size()]
+	if audio_cache.has(sfx_name):
+		return audio_cache[sfx_name]
+
+	var path := RSSettings.LOCAL_RES_FOLDER + "farts/" + sfx_name
+	var audio: AudioStream
+	match sfx_name.get_extension().to_lower():
+		"ogg": audio = AudioStreamOggVorbis.load_from_file(path)
+		"mp3": audio = AudioStreamMP3.load_from_file(path)
+
+	audio_cache[sfx_name] = audio
+	return audio
 
 func load_texture_from_url(url: String, use_cached := true) -> ImageTexture:
 	if use_cached and texture_cache.has(url):
