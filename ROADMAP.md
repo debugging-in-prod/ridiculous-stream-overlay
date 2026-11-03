@@ -20,7 +20,7 @@ done before the next starts, unless Kevin decides otherwise.
 
 Known issues:
 
-- Laser + beans hang when Rapier physics runs threaded (issue #1).
+- Laser + beans hang when Rapier physics runs threaded ([issue #9](https://github.com/debugging-in-prod/ridiculous-stream-overlay/issues/9), fix in PR #10).
 - The window starts at a fixed 1920x1080 with a title bar and a 1.6x UI scale in
   config mode. `RSUtl.fit_and_center_window_to_display()` is commented out in
   `RSMain.gd`.
@@ -59,7 +59,7 @@ Done when:
 - The window fits the screen at boot, with no fixed size and no forced UI scale.
 
 Work items:
-- Fix the laser + beans hang (issue #1).
+- Fix the laser + beans hang ([issue #9](https://github.com/debugging-in-prod/ridiculous-stream-overlay/issues/9), fix in PR #10).
 - Fit the window to the screen at boot and drop the 1.6x scale.
 - Remove the hardcoded ImageMagick path.
 - Resolve the two missing add-ons (vendor them or disable them in `project.godot`).
@@ -151,7 +151,7 @@ Work items:
 - Manual visual checklist for each OS: transparency, always-on-top,
   click-through.
 - Failures are filed as GitHub issues in this repo with an OS label.
-  Issues are currently disabled on this repo and need to be turned on first.
+  Issues are enabled on this repo.
 - One fix branch and one PR per issue.
 
 ## 5. Stable releases
@@ -163,7 +163,7 @@ Work items:
 
 ## 6. Next five steps
 
-1. Fix the issue #1 hang: move laser physics into `_physics_process` and defer
+1. Fix the issue #9 hang (PR #10): move laser physics into `_physics_process` and defer
    the destroy.
 2. Fit the window to the screen at boot and drop the 1.6x scale.
 3. Remove the hardcoded ImageMagick path and resolve the two missing add-ons.
