@@ -16,7 +16,7 @@ Ridiculous Stream: a transparent, click-through Godot overlay for Twitch streams
 
 ## nivek relay (`classes/RSNivekRelay.gd`)
 - Websocket client created in code by `RSMain.start_everything()`. Sends a `hello` frame `{token, since}`, then replays events after the persisted cursor (`user://nivek_relay_cursor.txt`) and waits for `ready`.
-- Event kinds: `cheer`, `power_up`, `extension`, `command`. `redemption` is received but ignored; redemptions stay on Twitch EventSub. Commands are live only and never replayed.
+- Event kinds: `cheer`, `power_up`, `extension`. `redemption` and legacy `command` frames are received but ignored (the cursor still advances); redemptions stay on Twitch EventSub.
 - Config: `cp nivek_relay.env.example nivek_relay.env` and fill in `NIVEK_DEVICE_TOKEN` (gitignored, never commit). Optional `NIVEK_RELAY_URL`, which defaults to `wss://peanutbudderbot.com/api/overlay/connect`.
 - Token lookup order: OS env var, then `res://nivek_relay.env`, then `RS.settings.nivek_device_token` (set from the config window, `instances/settings/win_config.gd`).
 - If no token is set, the relay is disabled and `RS.cheer_source()` falls back to `RSTwitcher` for cheers.
@@ -27,7 +27,7 @@ Ridiculous Stream: a transparent, click-through Godot overlay for Twitch streams
 - OAuth token files `twitch_oauth_setting.tres` and `twitch_oauth_token.tres` are gitignored.
 
 ## Effects
-- Reward, command and power-up dispatch is in `classes/RSCustom.gd`: `on_channel_points_redeemed`, `on_relay_command`, `on_power_up`, `on_extension_interaction`.
+- Reward, command and power-up dispatch is in `classes/RSCustom.gd`: `on_channel_points_redeemed`, `on_power_up`, `on_extension_interaction`.
 - Jumpscare: `RSCustom.jumpscare_woman()`, triggered by extension SKU `jumpscare_woman`. Assets are `local_res/scary-face-scaled.jpg` and `local_res/scream-clipped.ogg`. Nodes live under `JumpscareLayer` (CanvasLayer 128) in `rs_main.tscn`.
 - Physics objects are in `instances/objects/` (grenade, laser emitter, etc.) and `instances/physics_scene.gd`. Shaders are in `shaders/`.
 

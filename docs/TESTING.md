@@ -119,9 +119,7 @@ In short: anything that needs OBS, Twitch chat/API, a browser or external
 program, a human decision, real rendering (the names text is read back from a
 SubViewport, which the dummy renderer can't do), or a real window manager.
 
-Known failures on `main` @ 9a8cf29 (2 of 29). Both are real bugs, not test issues:
-- `relay_command_frame`: `RSNivekRelay.command_received` is never connected to
-  `RSCustom.on_relay_command`.
+Known failure (1 of 27). It's a real bug, not a test issue:
 - `sfx_commands` (`d=false`): `play_discord_notification` (and `discord`) call
   `RS.play_sfx("discord")`. That puts `"discord"` into `_from_username`, so
   `which` is empty and no sound plays.
@@ -178,7 +176,7 @@ tokens or other secrets):
 
 ```bash
 gh issue create -R debugging-in-prod/ridiculous-stream-overlay \
-  --title "smoke: relay_command_frame fails – relay commands never reach RSCustom" \
+  --title "smoke: sfx_commands fails – discord notification plays no sound" \
   --label bug --label linux \
   --body-file /tmp/issue.md
 ```

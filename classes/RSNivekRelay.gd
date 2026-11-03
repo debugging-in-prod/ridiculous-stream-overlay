@@ -23,14 +23,6 @@ signal power_up_redeemed(data: RSTwitchEventData)
 ## the panel). nivek-only, like power-ups; consumers dispatch on product_sku.
 signal extension_interaction(data: RSTwitchEventData)
 
-## A chat command peanutbudderbot matched, checked and forwarded. The bot owns
-## the trigger, the min_role and the per-channel capability gate; by the time
-## one arrives here the only question left is which action to run.
-##
-## These are never replayed: the relay delivers a command live or not at all, so
-## an overlay that was closed does not come back to a queue of stale ones.
-signal command_received(data: RSTwitchEventData)
-
 ## Emitted whenever the connection state changes (opened, closed, caught up).
 ## The config window listens so it can show whether the device token works.
 signal status_changed
@@ -47,7 +39,6 @@ const _KIND_CHEER := "cheer"
 const _KIND_REDEMPTION := "redemption"
 const _KIND_POWER_UP := "power_up"
 const _KIND_EXTENSION := "extension"
-const _KIND_COMMAND := "command"
 
 # Persisted delivery cursor: the highest per-user seq we have handled. Kept in a
 # tiny standalone file rather than settings.tres so a per-cheer write never races
@@ -256,10 +247,9 @@ func _handle_event(event: Variant) -> void:
 			# RSTwitchEventData via the "extension.bits" parser case.
 			if typeof(payload) == TYPE_DICTIONARY:
 				extension_interaction.emit(RSTwitchEventData.create_from_event_body("extension.bits", payload))
-		_KIND_COMMAND:
-			if typeof(payload) == TYPE_DICTIONARY:
-				command_received.emit(RSTwitchEventData.create_from_event_body("nivek.command", payload))
 		_:
+			# Includes legacy "command" frames from the old chat-through-nivek
+			# design: logged and dropped, but the cursor below still advances.
 			_log.w("nivek relay: unknown event kind '%s' (seq %d)" % [kind, seq])
 
 	# Advance the cursor for EVERY event we consume -- including the redemption

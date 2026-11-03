@@ -21,13 +21,8 @@ How events reach `RSCustom`:
   `RSTwitcher.connected_to_twitch`. They go through the twitcher addon's
   `TwitchCommand`.
 - The nivek relay (`classes/RSNivekRelay.gd:_handle_event`) emits `cheered`,
-  `power_up_redeemed`, `extension_interaction` and `command_received`.
+  `power_up_redeemed` and `extension_interaction`.
 - The floating menu calls handlers in `instances/btn_floating_menu.gd`.
-
-> **Known gap, found by the smoke test.** Nothing connects
-> `RSNivekRelay.command_received` to `RSCustom.on_relay_command`, in any `.gd`
-> or `.tscn` file. Relay `command` frames are parsed and then dropped.
-> `on_relay_command` works when called directly. See `relay_command_frame`.
 
 ---
 
@@ -156,8 +151,7 @@ Websocket to `NIVEK_RELAY_URL` (default
 | `power_up` `jumpscare` | `on_power_up` → `jumpscare_woman` | Scream starts, then after 0.05 s the scary face covers the screen (CanvasLayer 128). Both cut after 1 s. Re-trigger while showing is ignored. | yes, `relay_power_up_jumpscare` | Linux: the audio device is primed at boot (`_prime_jumpscare`) to avoid a ~200 ms first-sound lag. Windows: same code. |
 | `extension` `test_beans` | `RSCustom.on_extension_interaction` | 69 fake beans | yes, `relay_extension_test_beans` | same |
 | `extension` `jumpscare_woman` | `on_extension_interaction` → `jumpscare_woman` | As above | yes, `relay_extension_jumpscare_woman` | same |
-| `command` | `command_received` → (should be) `RSCustom.on_relay_command` | Actions `beans`, `shake`, `laser`, `nuke`, `zero_g`, `grenade`, `snow`, `name` | dispatch: yes, `relay_command_dispatch`. Frame → handler: **FAILs**, `relay_command_frame`, because the signal isn't connected. | same |
-| `redemption` | `_handle_event` | Ignored. The cursor still advances. | yes, `relay_ready_and_cursor` | same |
+| `redemption`, legacy `command` | `_handle_event` | Ignored. The cursor still advances. | yes, `relay_ready_and_cursor` | same |
 | `ready` | `_on_message` | `is_ready()` becomes true. The config window shows "Connected." when the token comes from settings. | yes, `relay_ready_and_cursor` | same |
 | Connection, replay, reconnect | `start`, `_on_open`, `_on_closed`, `restart` | hello sent, events replayed after `user://nivek_relay_cursor.txt`, auto-reconnect | no: network | same |
 
