@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://tests/laser_stress.gd" id="1_stress"]
+
+[node name="LaserStress" type="Node"]
+script = ExtResource("1_stress")

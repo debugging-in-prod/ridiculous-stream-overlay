@@ -12,6 +12,7 @@ var shape : CapsuleShape2D
 var tex : Texture2D
 var params : RSBeansParam
 var sfx_streams : Array[AudioStream]
+var is_destroyed := false
 
 
 func _init(_tex : Texture2D, _params : RSBeansParam, _sfx_streams : Array[AudioStream]):
@@ -49,6 +50,8 @@ func play_random_sfx():
 
 
 func destroy():
+	if is_destroyed or is_queued_for_deletion(): return
+	is_destroyed = true
 	if params.destroy_shard_params:
 		var new_p : RSBeansParam = params.destroy_shard_params
 		physics_scene.add_image_bodies(new_p, position)
