@@ -47,7 +47,7 @@ display_server/driver.linuxbsd="wayland"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/editorscriptmanager/plugin.cfg", "res://addons/kanban_tasks/plugin.cfg", "res://addons/ridiculous_coding/plugin.cfg", "res://addons/script-ide/plugin.cfg", "res://addons/twitcher/plugin.cfg")
+enabled=PackedStringArray("res://addons/kanban_tasks/plugin.cfg", "res://addons/script-ide/plugin.cfg", "res://addons/twitcher/plugin.cfg")
 
 [file_customization]
 

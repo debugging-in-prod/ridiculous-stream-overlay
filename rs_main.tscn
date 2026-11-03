@@ -321,7 +321,6 @@ metadata/broadcaster_user_id_user = SubResource("Resource_k5s5h")
 
 [sub_resource type="Resource" id="Resource_tsaix"]
 script = ExtResource("24_xfrgx")
-imagemagic_path = "C:/Program Files/ImageMagick-7.1.1-Q16-HDRI/magick.exe"
 metadata/_custom_type_script = "uid://dqd4kovdhhy8o"
 
 [sub_resource type="Resource" id="Resource_kuyc8"]
