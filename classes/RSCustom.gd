@@ -170,33 +170,6 @@ func on_cheered(data: RSTwitchEventData):
 	var quantity: int = clampi(data.bits / 100, 1, 20)
 	destructibles_names(data.username, quantity)
 
-# Chat commands routed through peanutbudderbot. The bot has already matched the
-# trigger, checked min_role and confirmed this channel is paired to an overlay,
-# so there is nothing to validate here -- only an action to run.
-#
-# Action names are the handler_key in nivek.command minus its "overlay_" prefix
-# (database/prod-apply-overlay-commands.sql in the nivek repo). Aliases collapse
-# on the bot side: !g, !grenade, !grenades, !granade and !grandma all arrive as
-# "grenade". Adding a command means a row there and a case here.
-func on_relay_command(data: RSTwitchEventData) -> void:
-	_log.i("Relay command: '%s' %s from %s" % [data.action, data.args, data.username])
-	match data.action:
-		"beans": spawn_fake_beans(data.username, null, data.args)
-		"shake": shake_bodies(data.username, null, data.args)
-		"laser": laser(data.username, null, data.args)
-		"nuke": nuke(data.username, null, data.args)
-		"zero_g": zero_g(data.username, null, data.args)
-		"grenade": spawn_grenade(data.username, null, data.args)
-		"snow": let_it_snow(data.username, null, data.args)
-		"name":
-			# Not add_name_to_scene(): that reads info.username off a
-			# TwitchCommandInfo, and a relay command has no such object. Call the
-			# same underlying spawn with the chatter the bot gave us.
-			destructibles_names(data.username, 1, 48)
-		_:
-			_log.w("Unmapped relay command '%s' -- add a case in on_relay_command()" % data.action)
-
-
 # Custom Power-ups arrive via the nivek relay. Dispatch on the power-up's title
 # Exactly like on_channel_points_redeemed does for reward_title. Add a case per power-up
 func on_power_up(data: RSTwitchEventData):

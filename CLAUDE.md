@@ -24,7 +24,7 @@ Ridiculous Stream: a transparent, click-through Godot overlay for Twitch streams
 - OAuth files `twitch_oauth_setting.tres` and `twitch_oauth_token.tres` are gitignored.
 
 ## Effects
-- Dispatch is in `classes/RSCustom.gd`: `on_channel_points_redeemed`, `on_relay_command`, `on_power_up`, `on_extension_interaction`.
+- Dispatch is in `classes/RSCustom.gd`: `on_channel_points_redeemed`, `on_power_up`, `on_extension_interaction`.
 - Example: `RSCustom.jumpscare_woman()` (extension SKU `jumpscare_woman`) uses `local_res/scary-face-scaled.jpg` and `local_res/scream-clipped.ogg`. Media lives in `local_res/`.
 - Physics objects are in `instances/objects/` and `instances/physics_scene.gd`. Shaders are in `shaders/`.
 

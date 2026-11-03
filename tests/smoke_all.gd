@@ -240,8 +240,6 @@ func _run() -> void:
 	await _test_reward_beans()
 	await _test_fake_beans()
 	await _test_relay_extension_beans()
-	await _test_relay_command_dispatch()
-	await _test_relay_command_wiring()
 	await _test_relay_cursor()
 	var zero_g_started: bool = await _test_zero_g_start()
 	await _test_shake()
@@ -342,12 +340,11 @@ func _test_eventsub_parse() -> void:
 	var rew := RSTwitchEventData.create_from_event_body("channel.channel_points_custom_reward_redemption.add", _reward_body("beans", "x"))
 	var pu := RSTwitchEventData.create_from_event_body("channel.custom_power_up_redemption.add", {"power_up_id": "p", "power_up_title": "jumpscare", "bits": 100})
 	var ext := RSTwitchEventData.create_from_event_body("extension.bits", {"product_sku": "test_beans", "bits": 50})
-	var cmd := RSTwitchEventData.create_from_event_body("nivek.command", {"action": "laser", "args": [1, "2"], "user_login": "d"})
 	var ok: bool = cheer.bits == 250 and cheer.username == "a" and raid.viewers == 7 and raid.from_broadcaster_username == "b" \
 		and sub.tier == 1000 and rew.reward_title == "beans" and rew.user_input == "x" and pu.power_up_title == "jumpscare" \
-		and pu.bits == 100 and ext.product_sku == "test_beans" and cmd.action == "laser" and cmd.args == PackedStringArray(["1", "2"])
-	_report("event_payload_parse", ok, "cheer.bits=%d raid.viewers=%d sub.tier=%d reward='%s' power_up='%s' sku='%s' cmd=%s %s" % [
-		cheer.bits, raid.viewers, sub.tier, rew.reward_title, pu.power_up_title, ext.product_sku, cmd.action, cmd.args])
+		and pu.bits == 100 and ext.product_sku == "test_beans"
+	_report("event_payload_parse", ok, "cheer.bits=%d raid.viewers=%d sub.tier=%d reward='%s' power_up='%s' sku='%s'" % [
+		cheer.bits, raid.viewers, sub.tier, rew.reward_title, pu.power_up_title, ext.product_sku])
 
 
 func _test_menu_beans() -> void:
@@ -387,35 +384,12 @@ func _test_relay_extension_beans() -> void:
 		"bodies %d -> %d, relay cursor=%d (sent %d)" % [before, _bodies(), RS.nivek_relay._last_seq, seq])
 
 
-func _test_relay_command_dispatch() -> void:
-	await _settle()
-	_begin()
-	var before := _bodies()
-	var data := RSTwitchEventData.create_from_event_body("nivek.command", {"action": "beans", "args": ["3"], "user_login": SMOKE_USER})
-	RS.custom.on_relay_command(data)
-	var ok: bool = await _until(func(): return _bodies() >= before + 3, 3.0)
-	_report("relay_command_dispatch", ok, "RSCustom.on_relay_command(beans 3): bodies %d -> %d" % [before, _bodies()])
-
-
-func _test_relay_command_wiring() -> void:
-	# A relay "command" frame must reach RSCustom.on_relay_command.
-	_begin()
-	await _settle()
-	var wired: bool = RS.nivek_relay.command_received.is_connected(RS.custom.on_relay_command)
-	var before := _bodies()
-	_relay_frame("command", {"action": "beans", "args": ["3"], "user_login": SMOKE_USER})
-	var spawned: bool = await _until(func(): return _bodies() >= before + 3, 2.0)
-	var detail := "relay command frame (beans 3): bodies %d -> %d" % [before, _bodies()]
-	if not wired:
-		detail += "; RSNivekRelay.command_received is not connected to RSCustom.on_relay_command anywhere"
-	_report("relay_command_frame", wired and spawned, detail)
-
-
 func _test_relay_cursor() -> void:
 	_begin()
 	RS.nivek_relay._on_message(JSON.stringify({"type": "ready"}).to_utf8_buffer())
 	var ready_ok: bool = RS.nivek_relay.is_ready()
-	var seq := _relay_frame("redemption", {"user_login": SMOKE_USER}) # ignored, but advances the cursor
+	_relay_frame("redemption", {"user_login": SMOKE_USER}) # ignored, but advances the cursor
+	var seq := _relay_frame("command", {"action": "beans", "args": ["3"], "user_login": SMOKE_USER}) # legacy kind: same
 	var f := FileAccess.open(RSNivekRelay._CURSOR_PATH, FileAccess.READ)
 	var persisted := f.get_as_text().strip_edges() if f else "<missing>"
 	_report("relay_ready_and_cursor", ready_ok and persisted == str(seq),
