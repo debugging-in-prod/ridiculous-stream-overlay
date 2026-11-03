@@ -156,15 +156,20 @@ static func get_file_creation_unix(abs_path: String) -> float:
 
 static func fit_and_center_window_to_display(p_window: Window) -> void:
 	var screen := p_window.current_screen
-	var origin := DisplayServer.screen_get_position(screen)
-	if RSDisplay.supports_desktop_overlay():
+	# Usable rect excludes the taskbar/dock, so the window never ends up under it.
+	var usable_rect := DisplayServer.screen_get_usable_rect(screen)
+	var origin := usable_rect.position
+	var usable_size := usable_rect.size
+	if DisplayServer.get_name() == "Wayland":
 		# Window.current_screen is always 0 on Wayland, which may not be the
 		# output the layer surface is bound to. Layer-shell positions are
 		# output-relative, so the origin is (0, 0) of that output — not
 		# screen_get_position() (compositor-global).
 		screen = RSDisplay.overlay_screen_index()
 		origin = Vector2i.ZERO
-	var usable_size := DisplayServer.screen_get_size(screen)
+		usable_size = DisplayServer.screen_get_size(screen)
+	if usable_size.x <= 0 or usable_size.y <= 0:
+		return  # headless / no screen info: nothing to fit to
 	var window_size := p_window.size
 	var decorated_size := p_window.get_size_with_decorations()
 	var decorations_size := decorated_size - window_size
@@ -174,6 +179,8 @@ static func fit_and_center_window_to_display(p_window: Window) -> void:
 	p_window.size = target_size
 	var decorated_after := p_window.get_size_with_decorations()
 	p_window.position = origin + (usable_size - decorated_after) / 2
+	print("[RSUtl] fit window %d to screen %d: usable=%s size=%s pos=%s" % [
+		p_window.get_window_id(), screen, Rect2i(origin, usable_size), p_window.size, p_window.position])
 
 
 static func resize_img_to_max_dim(img: Image, max_dim: int) -> Image:
