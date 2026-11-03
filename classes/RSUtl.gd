@@ -168,6 +168,8 @@ static func fit_and_center_window_to_display(p_window: Window) -> void:
 		screen = RSDisplay.overlay_screen_index()
 		origin = Vector2i.ZERO
 		usable_size = DisplayServer.screen_get_size(screen)
+	if usable_size.x <= 0 or usable_size.y <= 0:
+		return  # headless / no screen info: nothing to fit to
 	var window_size := p_window.size
 	var decorated_size := p_window.get_size_with_decorations()
 	var decorations_size := decorated_size - window_size
