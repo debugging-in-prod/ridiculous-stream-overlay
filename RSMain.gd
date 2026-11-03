@@ -136,6 +136,11 @@ func start_everything() -> void:
 	# transparent overlay only when the config is closed, and remove it again
 	# whenever the config is reopened. See enter_config_mode/enter_overlay_mode.
 	win_config.close_requested.connect(enter_overlay_mode)
+	# Boot window is 1920x1080 with a title bar (project.godot); on smaller
+	# screens it overflowed. Shrink it to the usable screen area and center it,
+	# and center the config window. Overlay mode resizes to full screen later.
+	RSUtl.fit_and_center_window_to_display(get_window())
+	RSUtl.fit_and_center_window_to_display(win_config)
 	enter_config_mode()
 
 	all_started.emit()
