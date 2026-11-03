@@ -5,14 +5,12 @@ var duration = 20
 var tw : Tween
 var tmr: Timer
 
-var space : PhysicsDirectSpaceState2D
-
 var query : PhysicsRayQueryParameters2D
 var obj_destroyed_counter : int = 0
 
 
 func _ready():
-	set_process(false)
+	set_physics_process(false)
 	tmr = Timer.new()
 	add_child(tmr)
 	tmr.one_shot = true
@@ -22,14 +20,16 @@ func _ready():
 
 func play(angle: float):
 	await get_tree().physics_frame
-	set_process(true)
-	space = get_world_2d().direct_space_state
-	query = PhysicsRayQueryParameters2D.create(Vector2(), Vector2())
-	query.collide_with_bodies = true
-	query.collision_mask = 0b111111 #1+2+4+8+16+32
+	if not query:
+		query = PhysicsRayQueryParameters2D.create(Vector2(), Vector2())
+		query.collide_with_bodies = true
+		query.collision_mask = 0b111111 #1+2+4+8+16+32
 	
 	var passes = 5
-	set_process(true)
+	set_physics_process(true)
+	# triggered again while still sweeping: restart instead of stacking a second tween on rotation
+	if tw and tw.is_valid():
+		tw.kill()
 	tw = create_tween().bind_node(self)
 	tw.set_ease(Tween.EASE_IN_OUT)
 	tw.set_trans(Tween.TRANS_SINE)
@@ -49,7 +49,9 @@ func replay():
 	# queue_free()
 
 
-func _process(_d):
+# The direct space state is only safe to query during _physics_process
+# (physics runs on a separate thread, see project.godot).
+func _physics_process(_d):
 	if rotation == 0 and tmr.is_stopped():
 		tmr.start()
 	elif rotation != 0:
@@ -59,6 +61,7 @@ func _process(_d):
 	
 	query.from = %ray.global_position
 	query.to = %ray.global_position + %ray.target_position.rotated(rotation)
+	var space := get_world_2d().direct_space_state
 	var coll_dic : Dictionary = space.intersect_ray(query)
 	var colliding = !coll_dic.is_empty()
 	
@@ -76,8 +79,10 @@ func _process(_d):
 		%impact_particles.global_position = impact_pos
 		%impact_particles.global_rotation = n_angle + PI/2
 		
+		if not is_instance_valid(coll) or coll.is_queued_for_deletion():
+			return
 		if coll.has_method("destroy"):
-			coll.destroy()
+			coll.destroy.call_deferred()
 			obj_destroyed_counter += 1
 			%lb_counter.text = str(obj_destroyed_counter)
 		elif coll is RigidBody2D and firing:

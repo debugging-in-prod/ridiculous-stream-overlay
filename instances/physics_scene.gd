@@ -155,7 +155,7 @@ func add_image_bodies(params : RSBeansParam, pos = null, linear_velocity = null,
 
 
 func add_laser(angle: float) -> void:
-	if not laser_scene:
+	if not is_instance_valid(laser_scene) or laser_scene.is_queued_for_deletion():
 		laser_scene = RS.globals.laser_scene_pack.instantiate()
 		laser_scene.position = size/2
 		add_child(laser_scene)
