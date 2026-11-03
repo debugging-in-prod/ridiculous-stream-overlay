@@ -97,6 +97,19 @@ Work items:
 - Re-enable or replace the disabled first-run welcome flow.
 - Remove the need for users to bring their own Twitch client ID/secret where
   the relay can cover it.
+- Agent-friendly setup, so Grok Bot, Claude Code, Gemini and other agents can
+  set up the overlay and peanutbudder:
+  - An `AGENTS.md`/`SETUP.md` written for agents: install Godot, the Twitcher
+    first auth, where the peanutbudder device token goes, running the
+    stress/smoke tests, and what "working" looks like.
+  - A one-command self-check for install, token, relay connection and Twitch
+    connection, printing plain pass/fail lines.
+  - Later: an MCP server or small API on the peanutbudder side to create the
+    device token, list redeems and trigger a test effect (also useful for
+    test automation).
+  - Limits: the streamer does the first Twitch sign-in and any consent screen
+    in a browser. The device token lives in an env var or the OS keychain,
+    never in a repo file or an agent chat.
 
 ### M4: Premium interactions (monetization)
 
