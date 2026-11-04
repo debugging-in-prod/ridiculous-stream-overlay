@@ -134,7 +134,23 @@ In short: anything that needs OBS, Twitch chat/API, a browser or external
 program, a human decision, real rendering (the names text is read back from a
 SubViewport, which the dummy renderer can't do), or a real window manager.
 
-All 29 checks are expected to pass.
+Kevin channel extras (`RSSettings.kevin_channel_extras`, see
+[FEATURES.md](FEATURES.md#kevin-channel-extras-kevin_channel_extras-off-by-default)):
+- The clean data dir starts with the extras **off**. `config_window` checks
+  that default and the checkbox.
+- `kevin_extras_off` then fires the gated triggers with the extras off: the
+  `theyagich` `wb!` chat trigger, the rewards `Beer Nye!`, `smoke chirp` and
+  `Shut down stream`, the `jumpscare` power-up, and the `test_beans` /
+  `jumpscare_woman` SKUs. It checks that nothing spawns, shows, plays or
+  queues an alert. It also checks that the generic `fart` reward still plays.
+  The `kiwi` trigger is deliberately not fired (it would open a browser).
+- `menu_beans`, `reward_beans` and `cmd_fake_beans` also run with the extras
+  off. `_run` then sets `RS.settings.kevin_channel_extras = true` (in memory
+  only) before `relay_extension_test_beans`. Every later check, including the
+  jumpscare, `reward_smoke_chirp`, `reward_beer_nye` and
+  `reward_shut_down_stream_alert`, runs with the extras on.
+
+All 30 checks are expected to pass.
 
 ## Turning failures into GitHub issues
 

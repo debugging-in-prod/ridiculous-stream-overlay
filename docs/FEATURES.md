@@ -24,6 +24,45 @@ How events reach `RSCustom`:
   `power_up_redeemed` and `extension_interaction`.
 - The floating menu calls handlers in `instances/btn_floating_menu.gd`.
 
+### Kevin channel extras (`kevin_channel_extras`, off by default)
+
+Triggers that only make sense on Kevin's own channel are gated by one setting,
+`RSSettings.kevin_channel_extras`. It defaults to **off**, so another
+streamer's overlay only runs the generic effects. Rows below marked
+**[extras]** do nothing while it is off. The code is still there.
+
+Gated when off:
+- **Chat text triggers** in `RSCustom.on_chat`: `kiwi`, `theyagich` saying
+  `wb!`, `dawdle`. The chat notification burst is generic and still runs.
+- **First chat message of the session** (`RSCustom.on_first_session_message`),
+  which depends on OBS reporting the stream as live.
+- **Channel-point rewards** with Kevin-specific titles
+  (`RSCustom._on_kevin_channel_reward`): `open useless website`,
+  `open browser history`, `remove the cig break overlay`, `Shut down stream`,
+  `Raid kani_dev`, `Impersonate iRadDev`, `Do it!`,
+  `Toggle mute mic on stream`, `Change streamer colour`, `Beer Nye!`,
+  `smoke chirp`.
+- **Custom Power-up titles** (`RSCustom.on_power_up`): `A mullion beanz`,
+  `jumpscare`.
+- **Twitch Extension SKUs** (`RSCustom.on_extension_interaction`):
+  `test_beans`, `jumpscare_woman`.
+
+Still on for everyone: the rewards `beans`, `Give advice`, `Get advice`,
+`Force raid a random streamer`, `Change Stream Title`, `Granades!`, `fart`;
+all chat commands; follows, raids, cheers, subs; the floating menu.
+
+**How Kevin turns it back on** (either way works; the value is stored in
+`settings.tres` in the user data dir and persists):
+1. In the app: open the config window (it shows at boot, or floating menu →
+   Settings) and switch on **Kevin channel extras**. Settings are written when
+   the app quits through the floating menu (End → close) or when you press
+   Save & Reconnect for the device token.
+2. Or with the app closed, edit `<data_dir>/settings.tres` and add
+   `kevin_channel_extras = true` under `[resource]`. `<data_dir>` is the path
+   in `user://settings.ini` (default: Godot's user data dir, e.g.
+   `~/.local/share/godot/app_userdata/Ridiculous Stream` on Linux,
+   `%APPDATA%\Godot\app_userdata\Ridiculous Stream` on Windows).
+
 ---
 
 ## 1. Floating menu (`instances/btn_floating_menu.tscn`, script `btn_floating_menu.gd`)
@@ -69,22 +108,22 @@ Twitch API call.
 | Reward title | Entry point | Correct run | Headless | Platform |
 |---|---|---|---|---|
 | `beans` | `RSCustom.beans` | Redeemer's custom beans, or cans | yes, `reward_beans` | same |
-| `open useless website` | `open_useless_website` | Opens https://theuselessweb.com/ in the default browser | no: opens a browser | same (`OS.shell_open`) |
-| `open browser history` | `open_browser_history` | Launches Brave at `brave://history` | no: external program | **Windows only**: hardcoded `C:/Program Files/BraveSoftware/...` |
-| `remove the cig break overlay` | `toggle_cig_overlay` | Toggles OBS `BRB_text` | no: OBS | same |
+| `open useless website` **[extras]** | `open_useless_website` | Opens https://theuselessweb.com/ in the default browser | no: opens a browser | same (`OS.shell_open`) |
+| `open browser history` **[extras]** | `open_browser_history` | Launches Brave at `brave://history` | no: external program | **Windows only**: hardcoded `C:/Program Files/BraveSoftware/...` |
+| `remove the cig break overlay` **[extras]** | `toggle_cig_overlay` | Toggles OBS `BRB_text` | no: OBS | same |
 | `Give advice` | `RSVetting.custom_rewards_vetting(give_advice)` | After vetting, appends to `<data_dir>/advice_collection.json` | no: the vetting UI needs a human decision. Unknown users may queue a notification. | same |
 | `Get advice` | `get_advice` | Posts a random saved advice line to chat | no: sends Twitch chat | same |
-| `Shut down stream` | `alert_on_stop_streaming` → `RSAlertOverlay.initialize_stop_streaming` | An alert bar counts down 10 s, then calls OBS `StopStream`. The bar's close button cancels it. | yes, `reward_shut_down_stream_alert` (bar shown, then cancelled before the OBS call) | same |
-| `Raid kani_dev` | `raid_kani` → `RSAlertOverlay.initialize_raid` | An alert bar counts down, then starts a Twitch raid | no: Twitch API | same |
+| `Shut down stream` **[extras]** | `alert_on_stop_streaming` → `RSAlertOverlay.initialize_stop_streaming` | An alert bar counts down 10 s, then calls OBS `StopStream`. The bar's close button cancels it. | yes, `reward_shut_down_stream_alert` (bar shown, then cancelled before the OBS call) | same |
+| `Raid kani_dev` **[extras]** | `raid_kani` → `RSAlertOverlay.initialize_raid` | An alert bar counts down, then starts a Twitch raid | no: Twitch API | same |
 | `Force raid a random streamer` | `RSAlertOverlay.wheel_of_random_raid` | Currently only posts "Raid random wheel is broken!" to chat (early `return`) | no: sends chat | same |
-| `Impersonate iRadDev` | vetting → `impersonate_iRad` | Sends the message as the named known user | no: Twitch | same |
+| `Impersonate iRadDev` **[extras]** | vetting → `impersonate_iRad` | Sends the message as the named known user | no: Twitch | same |
 | `Change Stream Title` | vetting → `change_stream_title` | Sets the stream title to `<input> - <user>` | no: Twitch API | same |
-| `Do it!` | `play_doit` | Restarts OBS media `do_it_<1-3>.mp4` | no: OBS | same |
-| `Toggle mute mic on stream` | inline | Toggles OBS `Mic/Aux`. Posts a teasing chat line if the redeemer is `trickylady`. | no: OBS | same |
+| `Do it!` **[extras]** | `play_doit` | Restarts OBS media `do_it_<1-3>.mp4` | no: OBS | same |
+| `Toggle mute mic on stream` **[extras]** | inline | Toggles OBS `Mic/Aux`. Posts a teasing chat line if the redeemer is `trickylady`. | no: OBS | same |
 | `Granades!` | `RSPhysicsScene.spawn_grenade` | One grenade | yes, `reward_grenade` | same |
-| `Change streamer colour` | `change_streamer_colour` | Sets OBS filter `Colour Correction` on `Cam-cutout`/`Cam-composite` | no: OBS | same |
-| `Beer Nye!` | `beer_nye_the_science_guy` | Shows and plays `res://local_res/beer-nye.ogv`, hidden again when it finishes | yes, `reward_beer_nye` | same |
-| `smoke chirp` | `play_smoke_chirp_sound` | Plays `local_res/smoke-detector-chirp.ogg` | yes, `sfx_commands` (`reward_smoke_chirp`) | same |
+| `Change streamer colour` **[extras]** | `change_streamer_colour` | Sets OBS filter `Colour Correction` on `Cam-cutout`/`Cam-composite` | no: OBS | same |
+| `Beer Nye!` **[extras]** | `beer_nye_the_science_guy` | Shows and plays `res://local_res/beer-nye.ogv`, hidden again when it finishes | yes, `reward_beer_nye` | same |
+| `smoke chirp` **[extras]** | `play_smoke_chirp_sound` | Plays `local_res/smoke-detector-chirp.ogg` | yes, `sfx_commands` (`reward_smoke_chirp`) | same |
 | `fart` | `play_fart` | Plays a random file from `local_res/farts/` | yes, `sfx_commands` (`reward_fart`) | same |
 | any other title | none | Ignored silently | n/a | |
 
@@ -96,7 +135,7 @@ Twitch API call.
 | `channel.raid` | `RSCustom.on_raided` → `show_event_alert(&"raid")` + `destructibles_names(raider, viewers)` | Orange "<raider> is raiding with N viewers!" banner + discord sfx (as for follow). One name per raiding viewer when names are on. | alert: yes, `event_alerts`. Names: partial (as above) | same |
 | `channel.cheer` (only when the relay is **not** configured, see `RSMain.cheer_source`) | `RSCustom.on_cheered` | Cheerer's name, `clamp(bits/100, 1, 20)` copies. Anonymous cheers do nothing. | partial (as above) | same |
 | `channel.subscribe` | `RSCustom.on_subscribed` → `show_event_alert(&"sub")`, and `RSSummaryMng._on_subscribed` | Purple "<name> subscribed at Tier N!" (or "<name> got a gifted Tier N sub!") banner + discord sfx (as for follow). A gift-sub bomb shows at most 4 banners at once (newest replace oldest) and plays the sfx once. No falling names. Recorded in the summary. | yes, `event_alerts` and `event_alerts_gift_bomb` (alert) and `eventsub_follow_raid_cheer_sub` (summary tracks the user) | same |
-| First chat message of the session | `RSCustom.on_first_session_message` | Only if OBS reports the stream is live: refresh the user's colour, drop their name, queue an auto shoutout | no: needs OBS and Twitch | same |
+| First chat message of the session **[extras]** | `RSCustom.on_first_session_message` | Only if OBS reports the stream is live: refresh the user's colour, drop their name, queue an auto shoutout | no: needs OBS and Twitch | same |
 | EventSub payload parsing | `classes/RSTwitchEventData.gd:create_from_event_body` | Fields map correctly for every type | yes, `event_payload_parse` | same |
 
 ### 2c. Chat commands: `RSCustom.add_commands` (local, via twitcher `TwitchCommand`)
@@ -129,14 +168,16 @@ Registered only after Twitch connects. Every handler takes
 | TTS commands | commented out in `add_commands` | n/a | n/a | `DisplayServer.tts_*` is OS-dependent |
 
 Chat text triggers in `RSCustom.on_chat` (any chat message):
-- A message not starting with `!` → `add_notification_scene`.
-- A message containing `kiwi` → opens a hardcoded Discord CDN image in the
-  browser.
-- `theyagich` saying `wb!` → `yag_welcome_back`: 10× beans, then TTS.
-- A message containing `dawdle` → 10× small "dawdle" names.
+- A message not starting with `!` → `add_notification_scene`. Generic, always on.
+- **[extras]** A message containing `kiwi` → opens a hardcoded Discord CDN
+  image in the browser.
+- **[extras]** `theyagich` saying `wb!` → `yag_welcome_back`: 10× beans, then TTS.
+- **[extras]** A message containing `dawdle` → 10× small "dawdle" names.
 
-These aren't headless-tested because they need a real `TwitchChatMessage` and
-a user lookup. The notification itself is covered by `chat_notification`.
+With the extras on, these aren't headless-tested (`kiwi` opens a browser,
+`wb!` looks up `theyagich` through the Twitch API, `dawdle` renders names).
+`kevin_extras_off` checks that `wb!` does nothing with the extras off. The
+notification itself is covered by `chat_notification`.
 
 ### 2d. nivek relay events (`classes/RSNivekRelay.gd`)
 
@@ -147,10 +188,10 @@ Websocket to `NIVEK_RELAY_URL` (default
 | Event kind | Entry point | Correct run | Headless | Platform |
 |---|---|---|---|---|
 | `cheer` | `_handle_event` → `cheered` → `RSCustom.on_cheered` (only when the relay is enabled, via `RSMain.cheer_source`) | Same as the EventSub cheer, with durable replay | partial: cursor and frame parsing are covered by `relay_ready_and_cursor`. The names output isn't renderable headless. | same |
-| `power_up` `A mullion beanz` | `RSCustom.on_power_up` | 11 × 69 fake beans (capped at 2500 bodies) | not run: too heavy for the 60 s budget. The same spawn is covered by `cmd_fake_beans`. | same |
-| `power_up` `jumpscare` | `on_power_up` → `jumpscare_woman` | Scream starts, then after 0.05 s the scary face covers the screen (CanvasLayer 128). Both cut after 1 s. Re-trigger while showing is ignored. | yes, `relay_power_up_jumpscare` | Linux: the audio device is primed at boot (`_prime_jumpscare`) to avoid a ~200 ms first-sound lag. Windows: same code. |
-| `extension` `test_beans` | `RSCustom.on_extension_interaction` | 69 fake beans | yes, `relay_extension_test_beans` | same |
-| `extension` `jumpscare_woman` | `on_extension_interaction` → `jumpscare_woman` | As above | yes, `relay_extension_jumpscare_woman` | same |
+| `power_up` `A mullion beanz` **[extras]** | `RSCustom.on_power_up` | 11 × 69 fake beans (capped at 2500 bodies) | not run: too heavy for the 60 s budget. The same spawn is covered by `cmd_fake_beans`. | same |
+| `power_up` `jumpscare` **[extras]** | `on_power_up` → `jumpscare_woman` | Scream starts, then after 0.05 s the scary face covers the screen (CanvasLayer 128). Both cut after 1 s. Re-trigger while showing is ignored. | yes, `relay_power_up_jumpscare` | Linux: the audio device is primed at boot (`_prime_jumpscare`) to avoid a ~200 ms first-sound lag. Windows: same code. |
+| `extension` `test_beans` **[extras]** | `RSCustom.on_extension_interaction` | 69 fake beans | yes, `relay_extension_test_beans` | same |
+| `extension` `jumpscare_woman` **[extras]** | `on_extension_interaction` → `jumpscare_woman` | As above | yes, `relay_extension_jumpscare_woman` | same |
 | `redemption`, legacy `command` | `_handle_event` | Ignored. The cursor still advances. | yes, `relay_ready_and_cursor` | same |
 | `ready` | `_on_message` | `is_ready()` becomes true. The config window shows "Connected." when the token comes from settings. | yes, `relay_ready_and_cursor` | same |
 | Connection, replay, reconnect | `start`, `_on_open`, `_on_closed`, `restart` | hello sent, events replayed after `user://nivek_relay_cursor.txt`, auto-reconnect | no: network | same |
@@ -192,6 +233,7 @@ Shown at boot (config mode). Closing it enters overlay mode
 | Chat notifications toggle | `_on_ck_chat_notifications_toggled` | Turns the notification burst on/off | yes, `config_window` + `chat_notification` | same |
 | Names on screen toggle | `_on_ck_names_on_screen_toggled` | Turns names on/off for follows, raids, cheers, `!n` and the names button. Doesn't affect the follow/raid/sub alerts. | yes, `config_window` + `names_disabled_by_config` | same |
 | Follow / raid / sub alerts toggle (`ck_event_alerts`) | `_on_ck_event_alerts_toggled` → `RSSettings.event_alerts_enabled` (default on) | Turns the follow/raid/sub banner and its sound on/off | yes, `config_window` + `event_alerts` | same |
+| Kevin channel extras toggle | `_on_ck_kevin_channel_extras_toggled` | Turns `kevin_channel_extras` on/off (see "Kevin channel extras" above). Off by default. | yes, `config_window` (default off + toggle) + `kevin_extras_off` | same |
 | Toggle Debug View | `_on_btn_debug_pressed` | Toggles the debug view | same toggle as the menu (`menu_panel_toggles`) | same |
 | Config ↔ overlay mode | `RSMain.enter_config_mode` / `enter_overlay_mode`, `RSDisplay.start` / `exit_overlay` | Config: overlay invisible and fully click-through, config window visible. Overlay: transparent, always-on-top, click-through except UI. | state switch yes, `overlay_config_switch`. The visual result is manual (checklist below). | Wayland (patched engine): layer-shell surface, input regions. Wayland (stock engine): ordinary window for OBS capture (`RSDisplay.set_capture_window`). Windows: `always_on_top` plus the `rs_clickthrough` DLL (`WS_EX_TRANSPARENT`). |
 

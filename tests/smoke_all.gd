@@ -235,10 +235,17 @@ func _run() -> void:
 	await _test_panels()
 	await _test_eventsub_parse()
 
+	# --- Kevin's channel extras: off by default, gated triggers must stay silent ---
+	await _test_kevin_extras_off()
+
 	# --- physics effects ---
+	# Generic effects run with kevin_channel_extras still off.
 	await _test_menu_beans()
 	await _test_reward_beans()
 	await _test_fake_beans()
+	# From here on the Kevin-specific triggers are under test (extension SKUs,
+	# power-ups, Beer Nye!, smoke chirp, Shut down stream), so turn the extras on.
+	RS.settings.kevin_channel_extras = true
 	await _test_relay_extension_beans()
 	await _test_relay_cursor()
 	var zero_g_started: bool = await _test_zero_g_start()
@@ -283,6 +290,13 @@ func _test_config_window() -> void:
 	wc._on_ck_event_alerts_toggled(false)
 	var alerts_off: bool = RS.settings.event_alerts_enabled == false
 	wc._on_ck_event_alerts_toggled(true)
+	# Kevin channel extras: off on a clean data dir, and the checkbox drives it.
+	var extras_default_off: bool = RS.settings.kevin_channel_extras == false \
+		and not wc.ck_kevin_channel_extras.button_pressed
+	wc._on_ck_kevin_channel_extras_toggled(true)
+	var extras_on: bool = RS.settings.kevin_channel_extras == true
+	wc._on_ck_kevin_channel_extras_toggled(false)
+	var extras_toggle: bool = extras_default_off and extras_on and RS.settings.kevin_channel_extras == false
 	# Save & Reconnect with an empty token: saves settings (to the throwaway data
 	# dir), restarts the relay (stays disabled) and rebinds the cheer consumers.
 	wc.ln_device_token.text = ""
@@ -293,9 +307,9 @@ func _test_config_window() -> void:
 		and not RS.nivek_relay.cheered.is_connected(RS.custom.on_cheered)
 	var saved: bool = FileAccess.file_exists(RSSettings.get_settings_filepath())
 	var ok: bool = shown and relay_text.begins_with("No device token") and twitch_text == "Not connected." \
-		and notif_off and names_off and alerts_off and still_off and cheer_bound and saved
-	_report("config_window", ok, "shown_at_boot=%s relay_status='%s' twitch_status='%s' toggles=%s/%s/%s relay_still_disabled=%s cheer_on_twitcher=%s settings_saved=%s" % [
-		shown, relay_text.left(40), twitch_text, notif_off, names_off, alerts_off, still_off, cheer_bound, saved])
+		and notif_off and names_off and alerts_off and extras_toggle and still_off and cheer_bound and saved
+	_report("config_window", ok, "shown_at_boot=%s relay_status='%s' twitch_status='%s' toggles=%s/%s/%s kevin_extras_default_off+toggle=%s relay_still_disabled=%s cheer_on_twitcher=%s settings_saved=%s" % [
+		shown, relay_text.left(40), twitch_text, notif_off, names_off, alerts_off, extras_toggle, still_off, cheer_bound, saved])
 
 
 func _test_overlay_mode() -> void:
@@ -350,6 +364,63 @@ func _test_eventsub_parse() -> void:
 		and pu.bits == 100 and ext.product_sku == "test_beans"
 	_report("event_payload_parse", ok, "cheer.bits=%d raid.viewers=%d sub.tier=%d reward='%s' power_up='%s' sku='%s'" % [
 		cheer.bits, raid.viewers, sub.tier, rew.reward_title, pu.power_up_title, ext.product_sku])
+
+
+## With kevin_channel_extras off (the default), Kevin's channel-specific triggers
+## must do nothing, while a generic reward still works. The "kiwi" text trigger
+## is not fired here: if the gate broke it would open a browser on the test box.
+func _test_kevin_extras_off() -> void:
+	await _settle()
+	_begin()
+	var default_off: bool = RS.settings.kevin_channel_extras == false
+	RS.settings.kevin_channel_extras = false
+	var custom_sfx: AudioStreamPlayer = RS.custom.get_node("sfx_custom")
+	custom_sfx.stop()
+	var vp: VideoStreamPlayer = RS.custom.video_player
+	# Snapshot the player itself, not its parent: the parent is the rs_main root
+	# Control, which is always visible, so it can't show whether Beer Nye ran.
+	var vp_valid := is_instance_valid(vp)
+	var vp_visible_before: bool = vp_valid and vp.visible
+	var vp_playing_before: bool = vp_valid and vp.is_playing()
+	var vp_stream_before: VideoStream = vp.stream if vp_valid else null
+	var vb: VBoxContainer = RS.alert_scene.vb_cnt
+	var alerts_before := vb.get_child_count()
+	var bodies_before := _bodies()
+
+	# Chat text trigger: theyagich saying "wb!" would drop 10x beans.
+	var chat := TwitchChatMessage.new()
+	chat.chatter_user_id = str(SMOKE_USER_ID)
+	chat.chatter_user_name = "theyagich"
+	chat.message = TwitchChatMessage.Message.new()
+	chat.message.text = "wb!"
+	RS.custom.on_chat(chat)
+	# Channel-point rewards with Kevin-specific titles.
+	_eventsub("channel.channel_points_custom_reward_redemption.add", _reward_body("Beer Nye!"))
+	_eventsub("channel.channel_points_custom_reward_redemption.add", _reward_body("smoke chirp"))
+	_eventsub("channel.channel_points_custom_reward_redemption.add", _reward_body("Shut down stream", "smoke test"))
+	# Power-up titles and extension SKUs.
+	_relay_frame("power_up", {"power_up_id": "smoke", "power_up_title": "jumpscare", "bits": 1, "user_login": SMOKE_USER})
+	_relay_frame("extension", {"product_sku": "test_beans", "bits": 1, "user_login": SMOKE_USER})
+	_relay_frame("extension", {"product_sku": "jumpscare_woman", "bits": 1, "user_login": SMOKE_USER})
+	await _wait(1.0)
+
+	var no_beans: bool = _bodies() == bodies_before
+	var no_jumpscare: bool = not _jumpscare_visible() and not RS.custom.jumpscare_sfx.playing
+	# Beer Nye would assign the .ogv stream, show the player and start playback.
+	var no_video: bool = not vp_valid or (vp.visible == vp_visible_before \
+		and vp.is_playing() == vp_playing_before and vp.stream == vp_stream_before)
+	var no_alert: bool = vb.get_child_count() == alerts_before
+	var no_sfx: bool = not custom_sfx.playing
+	var silent: bool = no_beans and no_jumpscare and no_video and no_alert and no_sfx
+
+	# Generic rewards are not gated: "fart" must still play with the extras off.
+	_eventsub("channel.channel_points_custom_reward_redemption.add", _reward_body("fart"))
+	var generic_ok: bool = await _until(func(): return custom_sfx.playing and custom_sfx.stream != null, 1.0)
+	custom_sfx.stop()
+
+	_report("kevin_extras_off", default_off and silent and generic_ok,
+		"default_off=%s no_beans=%s (%d -> %d) no_jumpscare=%s no_beer_nye=%s no_alert=%s no_smoke_chirp=%s generic_fart_plays=%s" % [
+		default_off, no_beans, bodies_before, _bodies(), no_jumpscare, no_video, no_alert, no_sfx, generic_ok])
 
 
 func _test_menu_beans() -> void:
@@ -523,7 +594,7 @@ func _test_beer_nye() -> void:
 	_begin()
 	var vp: VideoStreamPlayer = RS.custom.video_player
 	_eventsub("channel.channel_points_custom_reward_redemption.add", _reward_body("Beer Nye!"))
-	var ok: bool = await _until(func(): return is_instance_valid(vp) and vp.get_parent().visible and vp.is_playing(), 2.0)
+	var ok: bool = await _until(func(): return is_instance_valid(vp) and vp.visible and vp.is_playing(), 2.0)
 	var detail := "video visible+playing=%s stream=%s" % [ok, vp.stream.resource_path if is_instance_valid(vp) and vp.stream else "<none>"]
 	if is_instance_valid(vp):
 		vp.stop()
