@@ -6,8 +6,8 @@
 oversampling_override = 1.0
 title = "Overlay Configuration"
 position = Vector2i(0, 36)
-size = Vector2i(460, 410)
-min_size = Vector2i(420, 370)
+size = Vector2i(460, 450)
+min_size = Vector2i(420, 410)
 script = ExtResource("1_fkr7n")
 
 [node name="pnl_config" type="PanelContainer" parent="." unique_id=1848332733]
@@ -86,6 +86,13 @@ tooltip_text = "Drop chatter names into the physics scene."
 button_pressed = true
 text = "Names on screen"
 
+[node name="ck_event_alerts" type="CheckButton" parent="pnl_config/mrg/vb" unique_id=1739204517]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Show a text alert with a sound for follows, raids and subs."
+button_pressed = true
+text = "Follow / raid / sub alerts"
+
 [node name="hs_2" type="HSeparator" parent="pnl_config/mrg/vb" unique_id=377492678]
 layout_mode = 2
 
@@ -99,4 +106,5 @@ text = "Toggle Debug View"
 [connection signal="pressed" from="pnl_config/mrg/vb/btn_apply_token" to="." method="_on_btn_apply_token_pressed"]
 [connection signal="toggled" from="pnl_config/mrg/vb/ck_chat_notifications" to="." method="_on_ck_chat_notifications_toggled"]
 [connection signal="toggled" from="pnl_config/mrg/vb/ck_names_on_screen" to="." method="_on_ck_names_on_screen_toggled"]
+[connection signal="toggled" from="pnl_config/mrg/vb/ck_event_alerts" to="." method="_on_ck_event_alerts_toggled"]
 [connection signal="pressed" from="pnl_config/mrg/vb/btn_debug" to="." method="_on_btn_debug_pressed"]

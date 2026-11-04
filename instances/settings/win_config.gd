@@ -8,6 +8,7 @@ class_name RSWinConfig
 @onready var lb_relay_status: Label = %lb_relay_status
 @onready var ck_chat_notifications: CheckButton = %ck_chat_notifications
 @onready var ck_names_on_screen: CheckButton = %ck_names_on_screen
+@onready var ck_event_alerts: CheckButton = %ck_event_alerts
 
 
 func _ready() -> void:
@@ -20,6 +21,7 @@ func _ready() -> void:
 func start() -> void:
 	ck_chat_notifications.set_pressed_no_signal(RS.settings.chat_notifications_enabled)
 	ck_names_on_screen.set_pressed_no_signal(RS.settings.names_on_screen_enabled)
+	ck_event_alerts.set_pressed_no_signal(RS.settings.event_alerts_enabled)
 	ln_device_token.text = RS.settings.nivek_device_token
 	if RS.nivek_relay:
 		RS.nivek_relay.status_changed.connect(refresh_relay_status)
@@ -122,6 +124,10 @@ func _on_ck_chat_notifications_toggled(toggled_on: bool) -> void:
 
 func _on_ck_names_on_screen_toggled(toggled_on: bool) -> void:
 	RS.settings.names_on_screen_enabled = toggled_on
+
+
+func _on_ck_event_alerts_toggled(toggled_on: bool) -> void:
+	RS.settings.event_alerts_enabled = toggled_on
 
 
 func _on_btn_debug_pressed() -> void:

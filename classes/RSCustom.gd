@@ -15,10 +15,32 @@ const JUMPSCARE_WOMAN_SECONDS := 1
 # latency. Bump this up if the sound still trails, down if it now leads.
 const JUMPSCARE_WOMAN_AUDIO_LEAD := 0.05
 
+# Follow / raid / sub alert (see show_event_alert): a text banner at the top of
+# the screen plus the existing sfx/discord sound. Independent of the "Names on
+# screen" toggle; gated by RS.settings.event_alerts_enabled.
+const EVENT_ALERT_GROUP := &"rs_event_alert"
+const EVENT_ALERT_SFX := "discord" # node name under RSMain's %sfx
+const EVENT_ALERT_LAYER := 100 # above panels, below JumpscareLayer (128)
+const EVENT_ALERT_FONT_SIZE := 64
+const EVENT_ALERT_TOP := 80.0
+const EVENT_ALERT_SPACING := 90.0
+# At most this many alerts are on screen at once. A further alert replaces the
+# oldest live one and reuses its slot, so a gift-sub bomb never stacks off-screen.
+const EVENT_ALERT_MAX_SLOTS := 4
+const EVENT_ALERT_FADE := 0.3
+const EVENT_ALERT_HOLD := 3.0
+const EVENT_ALERT_COLOR_FOLLOW := Color("00ec4f")
+const EVENT_ALERT_COLOR_RAID := Color("ff8c1a")
+const EVENT_ALERT_COLOR_SUB := Color("b266ff")
+
 @export var video_player: VideoStreamPlayer
 @export var jumpscare_image: TextureRect
 @export var jumpscare_sfx: AudioStreamPlayer
 @export var file_dialog: FileDialog
+
+## Times show_event_alert requested its sfx (read by tests/smoke_all.gd).
+var event_alert_sfx_plays := 0
+var _event_alert_seq := 0
 
 func start():
 	_log.i("Started")
@@ -153,12 +175,20 @@ func on_channel_points_redeemed(data: RSTwitchEventData) -> void:
 		"smoke chirp": play_smoke_chirp_sound()
 		"fart": play_fart()
 func on_followed(data: RSTwitchEventData):
+	show_event_alert(&"follow", "%s just followed!" % _event_name(data.display_name, data.username), EVENT_ALERT_COLOR_FOLLOW)
 	destructibles_names(data.username)
 func on_raided(data: RSTwitchEventData):
 	var raider_username = data.from_broadcaster_username
+	var raider := _event_name(data.from_broadcaster_display_name, raider_username)
+	var viewers_txt := "1 viewer" if data.viewers == 1 else "%d viewers" % data.viewers
+	show_event_alert(&"raid", "%s is raiding with %s!" % [raider, viewers_txt], EVENT_ALERT_COLOR_RAID)
 	destructibles_names(raider_username, data.viewers)
-func on_subscribed(_data: RSTwitchEventData):
-	pass
+func on_subscribed(data: RSTwitchEventData):
+	var who := _event_name(data.display_name, data.username)
+	var tier: int = maxi(data.tier / 1000, 1) # EventSub sends "1000"/"2000"/"3000"
+	var text: String = "%s got a gifted Tier %d sub!" % [who, tier] if data.is_gift \
+		else "%s subscribed at Tier %d!" % [who, tier]
+	show_event_alert(&"sub", text, EVENT_ALERT_COLOR_SUB)
 func on_cheered(data: RSTwitchEventData):
 	var who := data.display_name if not data.display_name.is_empty() else data.username
 	_log.i("Cheer: %d bits from %s (anon=%s)" % [data.bits, who, data.is_anonymous])
@@ -214,6 +244,87 @@ func add_notification_scene(user: RSUser) -> void:
 	var new_notif_inst = RSGlobals.msg_notif_pack.instantiate()
 	RS.add_child(new_notif_inst)
 	new_notif_inst.start(user)
+
+
+## Alerts currently on screen: in EVENT_ALERT_GROUP and not queued for deletion.
+func live_event_alerts() -> Array[Node]:
+	var out: Array[Node] = []
+	for n in get_tree().get_nodes_in_group(EVENT_ALERT_GROUP):
+		if not n.is_queued_for_deletion():
+			out.append(n)
+	return out
+
+
+func _event_name(display_name: String, username: String) -> String:
+	if not display_name.is_empty(): return display_name
+	if not username.is_empty(): return username
+	return "Someone"
+
+
+## On-screen alert for follows, raids and subs: a big outlined Label on its own
+## CanvasLayer (group EVENT_ALERT_GROUP, meta "event_kind" = kind), faded in,
+## held, faded out and freed. Concurrent alerts stack downwards in at most
+## EVENT_ALERT_MAX_SLOTS slots; past that, a new alert replaces the oldest live
+## one in its slot. The sfx plays only when no other alert is live. The label is
+## not in the "UI" group and ignores the mouse, so it stays click-through.
+## Returns the layer, or null when RS.settings.event_alerts_enabled is off.
+func show_event_alert(kind: StringName, text: String, color: Color) -> CanvasLayer:
+	if not RS.settings.event_alerts_enabled: return null
+	var live := live_event_alerts()
+	var used_slots := {}
+	var oldest: Node = null
+	for n in live:
+		used_slots[int(n.get_meta("slot", 0))] = true
+		if oldest == null or int(n.get_meta("seq", 0)) < int(oldest.get_meta("seq", 0)):
+			oldest = n
+	var slot: int = -1
+	for i in EVENT_ALERT_MAX_SLOTS:
+		if not used_slots.has(i):
+			slot = i
+			break
+	if slot == -1: # every slot busy: drop the oldest alert and take its slot
+		slot = int(oldest.get_meta("slot", 0))
+		oldest.queue_free()
+	_event_alert_seq += 1
+
+	var layer := CanvasLayer.new()
+	layer.name = "EventAlert"
+	layer.layer = EVENT_ALERT_LAYER
+	layer.set_meta("event_kind", kind)
+	layer.set_meta("slot", slot)
+	layer.set_meta("seq", _event_alert_seq)
+	layer.add_to_group(EVENT_ALERT_GROUP)
+
+	var lb := Label.new()
+	lb.name = "lb_event_alert"
+	lb.text = text
+	lb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# Overlong names get an ellipsis instead of widening the label off-screen.
+	lb.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	lb.add_theme_font_size_override("font_size", EVENT_ALERT_FONT_SIZE)
+	lb.add_theme_color_override("font_color", color)
+	lb.add_theme_color_override("font_outline_color", Color.BLACK)
+	lb.add_theme_constant_override("outline_size", 16)
+	lb.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	lb.offset_top = EVENT_ALERT_TOP + slot * EVENT_ALERT_SPACING
+	lb.offset_bottom = lb.offset_top + EVENT_ALERT_SPACING
+	lb.modulate.a = 0.0
+	layer.add_child(lb)
+	add_child(layer)
+
+	var tw := layer.create_tween()
+	tw.tween_property(lb, "modulate:a", 1.0, EVENT_ALERT_FADE)
+	tw.tween_interval(EVENT_ALERT_HOLD)
+	tw.tween_property(lb, "modulate:a", 0.0, EVENT_ALERT_FADE)
+	tw.tween_callback(layer.queue_free)
+
+	# One sound per burst: only an alert that starts while none is live plays it.
+	if live.is_empty():
+		event_alert_sfx_plays += 1
+		RS.play_sfx("", null, PackedStringArray(), EVENT_ALERT_SFX)
+	_log.i("Event alert (%s): %s" % [kind, text])
+	return layer
 
 
 func parse_tts_command(_info: TwitchCommandInfo = null, args := [], localizazion := "") -> void:
