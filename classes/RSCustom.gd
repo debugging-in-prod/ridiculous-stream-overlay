@@ -313,7 +313,7 @@ func discord(
 			_info: TwitchCommandInfo = null,
 			_args: PackedStringArray = []
 		) -> void:
-	RS.play_sfx("discord")
+	RS.play_sfx("", null, PackedStringArray(), "discord")
 	var msg = "Join Discord: https://discord.gg/4YhKaHkcMb"
 	RS.twitcher.chat(msg)
 
@@ -505,7 +505,7 @@ func play_discord_notification(
 			_info: TwitchCommandInfo = null,
 			_args: PackedStringArray = []
 		) -> void:
-	RS.play_sfx("discord")
+	RS.play_sfx("", null, PackedStringArray(), "discord")
 
 
 func add_name_to_scene(

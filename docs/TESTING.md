@@ -119,10 +119,7 @@ In short: anything that needs OBS, Twitch chat/API, a browser or external
 program, a human decision, real rendering (the names text is read back from a
 SubViewport, which the dummy renderer can't do), or a real window manager.
 
-Known failure (1 of 27). It's a real bug, not a test issue:
-- `sfx_commands` (`d=false`): `play_discord_notification` (and `discord`) call
-  `RS.play_sfx("discord")`. That puts `"discord"` into `_from_username`, so
-  `which` is empty and no sound plays.
+All 27 checks are expected to pass.
 
 ## Turning failures into GitHub issues
 
@@ -176,7 +173,7 @@ tokens or other secrets):
 
 ```bash
 gh issue create -R debugging-in-prod/ridiculous-stream-overlay \
-  --title "smoke: sfx_commands fails – discord notification plays no sound" \
+  --title "smoke: <feature name> fails – <short symptom>" \
   --label bug --label linux \
   --body-file /tmp/issue.md
 ```
