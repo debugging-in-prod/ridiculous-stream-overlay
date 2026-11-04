@@ -88,6 +88,8 @@ const RS_SFX_FOLDER = "sfx/"
 # Overlay feature toggles, set from the configuration window (RSWinConfig).
 @export var chat_notifications_enabled := true
 @export var names_on_screen_enabled := true
+## Text banner + sound for follows, raids and subs (RSCustom.show_event_alert).
+@export var event_alerts_enabled := true
 # Kevin's own channel behaviour: chat text triggers (kiwi, theyagich "wb!",
 # dawdle), the first-message-of-session handler (needs OBS), the channel-specific
 # channel-point reward titles, the custom Power-up titles and the Twitch
