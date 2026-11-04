@@ -98,6 +98,8 @@ func on_chat(t_message: TwitchChatMessage) -> void:
 	var user: RSUser = await RS.user_mng.get_any_user_from_user_id(user_id)
 	if not message.begins_with("!"):
 		add_notification_scene(user)
+	# Kevin's channel-specific text triggers. Off unless kevin_channel_extras is set.
+	if not RS.settings.kevin_channel_extras: return
 	if "kiwi" in message.to_lower(): OS.shell_open("https://cdn.discordapp.com/attachments/1221896398706835527/1296143099478933566/IMG_2351.jpg?ex=671136d4&is=670fe554&hm=a909489ef95bd303ec49c2c559d869fc1da209e9ae3eb9a25ed085e055cdb183&")
 	if t_message.chatter_user_name == "theyagich" and message == "wb!": yag_welcome_back()
 	if "dawdle" in message: destructibles_names("dawdle")
@@ -109,6 +111,9 @@ func chat_on_stream_off(username: String) -> void:
 
 
 func on_first_session_message(t_message: TwitchChatMessage) -> void:
+	# Depends on Kevin's OBS setup (stream-on state via no-OBS-ws), so it's part of
+	# kevin_channel_extras. Without OBS it returned here anyway.
+	if not RS.settings.kevin_channel_extras: return
 	if !RS.no_obs_ws.is_stream_on: return
 	var user_id: int = int(t_message.chatter_user_id)
 	var user: RSUser = await RS.user_mng.get_any_user_from_user_id(user_id)
@@ -126,18 +131,31 @@ func on_channel_points_redeemed(data: RSTwitchEventData) -> void:
 	_log.i("Channel points redeemed. %s -> %s" % [data.username, data.reward_title] )
 	var user: RSUser = await RS.user_mng.get_any_user_from_username(data.username)
 	#if await !RS.no_obs_ws.is_stream_on: chat_on_stream_off(data.username); return
+	# Generic rewards: overlay-only effects with no channel names, OBS sources,
+	# local programs or channel-specific assets.
 	match data.reward_title:
 		"beans": beans(data.username)
+		"Give advice": RS.vetting.custom_rewards_vetting(give_advice, data)
+		"Get advice": get_advice(data)
+		"Force raid a random streamer": RS.alert_scene.wheel_of_random_raid(user, data.user_input)
+		"Change Stream Title": RS.vetting.custom_rewards_vetting(change_stream_title, data)
+		"Granades!": RS.physic_scene.spawn_grenade()
+		"fart": play_fart()
+		_:
+			if RS.settings.kevin_channel_extras:
+				_on_kevin_channel_reward(user, data)
+
+
+# Kevin's channel-specific channel-point rewards (OBS sources, named streamers,
+# Windows paths, local_res assets). Only reached when kevin_channel_extras is set.
+func _on_kevin_channel_reward(user: RSUser, data: RSTwitchEventData) -> void:
+	match data.reward_title:
 		"open useless website": open_useless_website()
 		"open browser history": open_browser_history()
 		"remove the cig break overlay": toggle_cig_overlay()
-		"Give advice": RS.vetting.custom_rewards_vetting(give_advice, data)
-		"Get advice": get_advice(data)
 		"Shut down stream": alert_on_stop_streaming(user, data)
 		"Raid kani_dev": raid_kani(user, data)
-		"Force raid a random streamer": RS.alert_scene.wheel_of_random_raid(user, data.user_input)
 		"Impersonate iRadDev": RS.vetting.custom_rewards_vetting(impersonate_iRad, data)
-		"Change Stream Title": RS.vetting.custom_rewards_vetting(change_stream_title, data)
 		"Do it!": play_doit()
 		"Toggle mute mic on stream":
 			if user.username == "trickylady":
@@ -147,11 +165,11 @@ func on_channel_points_redeemed(data: RSTwitchEventData) -> void:
 				]
 				RS.twitcher.chat(messages.pick_random() )
 			RS.no_obs_ws.toggle_mic_mute()
-		"Granades!": RS.physic_scene.spawn_grenade()
 		"Change streamer colour": change_streamer_colour(data.user_input)
 		"Beer Nye!": beer_nye_the_science_guy()
 		"smoke chirp": play_smoke_chirp_sound()
-		"fart": play_fart()
+
+
 func on_followed(data: RSTwitchEventData):
 	destructibles_names(data.username)
 func on_raided(data: RSTwitchEventData):
@@ -174,6 +192,10 @@ func on_cheered(data: RSTwitchEventData):
 # Exactly like on_channel_points_redeemed does for reward_title. Add a case per power-up
 func on_power_up(data: RSTwitchEventData):
 	_log.i("Power-up: '%s' (%d bits) from %s" % [data.power_up_title, data.bits, data.username])
+	# These titles are Kevin's channel's power-ups.
+	if not RS.settings.kevin_channel_extras:
+		_log.i("Power-up '%s' ignored: kevin_channel_extras is off" % data.power_up_title)
+		return
 	match data.power_up_title:
 		# Test power-up: same behavior as the "!b 69" chat command (69 fake beans).
 		"A mullion beanz":
@@ -199,6 +221,10 @@ func on_power_up(data: RSTwitchEventData):
 # out of code into per-broadcaster config so it's redistributable.)
 func on_extension_interaction(data: RSTwitchEventData):
 	_log.i("Extension: sku='%s' (%d bits)" % [data.product_sku, data.bits])
+	# This SKU map is Kevin's extension products.
+	if not RS.settings.kevin_channel_extras:
+		_log.i("Extension SKU '%s' ignored: kevin_channel_extras is off" % data.product_sku)
+		return
 	match data.product_sku:
 		# Test product: same behavior as the "!b 69" chat command (69 fake beans).
 		"test_beans":

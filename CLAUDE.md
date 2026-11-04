@@ -25,6 +25,7 @@ Ridiculous Stream: a transparent, click-through Godot overlay for Twitch streams
 
 ## Effects
 - Dispatch is in `classes/RSCustom.gd`: `on_channel_points_redeemed`, `on_power_up`, `on_extension_interaction`.
+- Kevin's channel-specific triggers (chat words, first-session-message handler, channel-specific reward titles in `_on_kevin_channel_reward`, power-up titles, extension SKUs) are gated by `RSSettings.kevin_channel_extras`, **default off**. Kevin turns it on with the "Kevin channel extras" checkbox in the config window, or `kevin_channel_extras = true` in `settings.tres`. Put new channel-specific triggers behind this gate. Details: `docs/FEATURES.md`.
 - Example: `RSCustom.jumpscare_woman()` (extension SKU `jumpscare_woman`) uses `local_res/scary-face-scaled.jpg` and `local_res/scream-clipped.ogg`. Media lives in `local_res/`.
 - Physics objects are in `instances/objects/` and `instances/physics_scene.gd`. Shaders are in `shaders/`.
 
