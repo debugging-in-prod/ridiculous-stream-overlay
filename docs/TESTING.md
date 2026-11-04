@@ -4,7 +4,7 @@ There are two automated headless tests and one manual checklist:
 
 | Test | What it covers | Pass marker | Typical time |
 |---|---|---|---|
-| `tests/smoke_all.tscn` | Every headless-testable feature in [FEATURES.md](FEATURES.md): one `SMOKE <name> OK\|FAIL <detail>` line per feature | `SMOKE_ALL_OK` | ~20 s |
+| `tests/smoke_all.tscn` | Every headless-testable feature in [FEATURES.md](FEATURES.md): one `SMOKE <name> OK\|FAIL <detail>` line per feature | `SMOKE_ALL_OK` | ~25 s |
 | `tests/laser_stress.tscn` | Regression test for the beans + laser physics hang (issue #9 / PR #10) | `STRESS_OK` | ~30 s |
 | [FEATURES.md → Manual by-eye checklist](FEATURES.md#manual-by-eye-checklist) | Transparency, always-on-top, click-through, window fit, config round-trip. These can't be checked headless. | you | ~5 min |
 
@@ -113,13 +113,21 @@ process tree (`taskkill /T /F`).
   GDScript backtrace, while running (via `OS.add_logger`).
 - Users are resolved through an injected fake known user (`rso_smoke_user`), so
   no Twitch API lookups happen.
+- `event_alerts` feeds EventSub `channel.follow`, `channel.raid` and
+  `channel.subscribe` payloads into `RSTwitcher.on_event` with "Names on
+  screen" off. For each one it asserts that exactly one new `CanvasLayer` in
+  group `rs_event_alert` (`RSCustom.EVENT_ALERT_GROUP`) appears, with meta
+  `event_kind` = `follow`/`raid`/`sub` and a child Label `lb_event_alert` whose
+  text contains the user's name. It then waits for the alerts to free
+  themselves, sets `RS.settings.event_alerts_enabled = false`, replays the three
+  events and asserts that no alert spawns. Only nodes are checked, no pixels.
 
 Not covered, and why: see the "Headless" column in [FEATURES.md](FEATURES.md).
 In short: anything that needs OBS, Twitch chat/API, a browser or external
 program, a human decision, real rendering (the names text is read back from a
 SubViewport, which the dummy renderer can't do), or a real window manager.
 
-All 27 checks are expected to pass.
+All 28 checks are expected to pass.
 
 ## Turning failures into GitHub issues
 

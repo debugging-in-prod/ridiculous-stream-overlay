@@ -255,6 +255,7 @@ func _run() -> void:
 	await _test_chat_notification(user)
 	await _test_names_toggle_off()
 	await _test_eventsub_events_dispatch()
+	await _test_event_alerts()
 	await _test_alert_stop_streaming()
 	await _test_summary_start()
 
@@ -278,6 +279,9 @@ func _test_config_window() -> void:
 	wc._on_ck_names_on_screen_toggled(false)
 	var names_off: bool = RS.settings.names_on_screen_enabled == false
 	wc._on_ck_names_on_screen_toggled(true)
+	wc._on_ck_event_alerts_toggled(false)
+	var alerts_off: bool = RS.settings.event_alerts_enabled == false
+	wc._on_ck_event_alerts_toggled(true)
 	# Save & Reconnect with an empty token: saves settings (to the throwaway data
 	# dir), restarts the relay (stays disabled) and rebinds the cheer consumers.
 	wc.ln_device_token.text = ""
@@ -288,9 +292,9 @@ func _test_config_window() -> void:
 		and not RS.nivek_relay.cheered.is_connected(RS.custom.on_cheered)
 	var saved: bool = FileAccess.file_exists(RSSettings.get_settings_filepath())
 	var ok: bool = shown and relay_text.begins_with("No device token") and twitch_text == "Not connected." \
-		and notif_off and names_off and still_off and cheer_bound and saved
-	_report("config_window", ok, "shown_at_boot=%s relay_status='%s' twitch_status='%s' toggles=%s/%s relay_still_disabled=%s cheer_on_twitcher=%s settings_saved=%s" % [
-		shown, relay_text.left(40), twitch_text, notif_off, names_off, still_off, cheer_bound, saved])
+		and notif_off and names_off and alerts_off and still_off and cheer_bound and saved
+	_report("config_window", ok, "shown_at_boot=%s relay_status='%s' twitch_status='%s' toggles=%s/%s/%s relay_still_disabled=%s cheer_on_twitcher=%s settings_saved=%s" % [
+		shown, relay_text.left(40), twitch_text, notif_off, names_off, alerts_off, still_off, cheer_bound, saved])
 
 
 func _test_overlay_mode() -> void:
@@ -566,6 +570,64 @@ func _test_eventsub_events_dispatch() -> void:
 	RS.settings.names_on_screen_enabled = true
 	var tracked: bool = RS.summary_mng.has_current_user(SMOKE_USER_ID)
 	_report("eventsub_follow_raid_cheer_sub", tracked, "dispatched without errors; summary tracks user=%s" % tracked)
+
+
+## Live follow/raid/sub alerts (RSCustom.show_event_alert), i.e. CanvasLayers in
+## group RSCustom.EVENT_ALERT_GROUP that are not already queued for deletion.
+func _event_alerts() -> Array[Node]:
+	var out: Array[Node] = []
+	for n in get_tree().get_nodes_in_group(RSCustom.EVENT_ALERT_GROUP):
+		if not n.is_queued_for_deletion():
+			out.append(n)
+	return out
+
+
+func _test_event_alerts() -> void:
+	# Each EventSub event must spawn one alert layer (meta event_kind, Label
+	# lb_event_alert naming the user) even with "Names on screen" off; with
+	# event_alerts_enabled=false none may spawn. No pixel checks.
+	_begin()
+	for n in _event_alerts(): # leftovers from eventsub_follow_raid_cheer_sub
+		n.queue_free()
+	await get_tree().process_frame
+	RS.settings.names_on_screen_enabled = false
+	RS.settings.event_alerts_enabled = true
+	var base := {"user_id": str(SMOKE_USER_ID), "user_login": SMOKE_USER, "user_name": "RsoSmokeUser"}
+	var cases := [
+		["follow", "channel.follow", base.merged({"followed_at": "2026-01-01T00:00:00Z"})],
+		["raid", "channel.raid", {"from_broadcaster_user_id": str(SMOKE_USER_ID), "from_broadcaster_user_login": SMOKE_USER, "from_broadcaster_user_name": "RsoSmokeUser", "viewers": 3}],
+		["sub", "channel.subscribe", base.merged({"tier": "1000", "is_gift": false})],
+	]
+	var results: PackedStringArray = []
+	var ok := true
+	for c in cases:
+		var prev := _event_alerts()
+		_eventsub(c[1], c[2])
+		var spawned: bool = await _until(func(): return _event_alerts().size() == prev.size() + 1, 1.0)
+		var kind_ok := false
+		var text_ok := false
+		if spawned:
+			var layer: Node = null
+			for n in _event_alerts():
+				if not prev.has(n):
+					layer = n
+			kind_ok = layer is CanvasLayer and String(layer.get_meta("event_kind", "")) == c[0]
+			var lb: Label = layer.get_node_or_null("lb_event_alert") as Label if layer else null
+			text_ok = lb != null and lb.text.contains("RsoSmokeUser")
+		var case_ok: bool = spawned and kind_ok and text_ok
+		ok = ok and case_ok
+		results.append("%s=%s" % [c[0], case_ok])
+	var freed: bool = await _until(func(): return _event_alerts().is_empty(),
+		RSCustom.EVENT_ALERT_HOLD + 2.0 * RSCustom.EVENT_ALERT_FADE + 2.0)
+	RS.settings.event_alerts_enabled = false
+	for c in cases:
+		_eventsub(c[1], c[2])
+	await _physics_frames(10)
+	var suppressed: bool = _event_alerts().is_empty()
+	RS.settings.event_alerts_enabled = true
+	RS.settings.names_on_screen_enabled = true
+	_report("event_alerts", ok and freed and suppressed, "%s (names off) freed_after_hold=%s disabled_suppresses=%s" % [
+		" ".join(results), freed, suppressed])
 
 
 func _test_alert_stop_streaming() -> void:

@@ -92,10 +92,10 @@ Twitch API call.
 
 | Event | Entry point | Correct run | Headless | Platform |
 |---|---|---|---|---|
-| `channel.follow` | `RSCustom.on_followed` → `destructibles_names(username)` | The follower's name drops as physics text | partial: `eventsub_follow_raid_cheer_sub` checks dispatch with names disabled. Text rendering isn't headless-testable (see names). | same |
-| `channel.raid` | `RSCustom.on_raided` → `destructibles_names(raider, viewers)` | One name per raiding viewer | partial (as above) | same |
+| `channel.follow` | `RSCustom.on_followed` → `show_event_alert(&"follow")` + `destructibles_names(username)` | Green "<name> just followed!" banner at the top with the discord sfx, gone after ~3.6 s (see the follow/raid/sub alert in §4). It shows even with "Names on screen" off and is gated by the "Follow / raid / sub alerts" toggle. The follower's name also drops as physics text when names are on. | alert: yes, `event_alerts`. Names: partial, `eventsub_follow_raid_cheer_sub` checks dispatch with names disabled; text rendering isn't headless-testable (see names). | same |
+| `channel.raid` | `RSCustom.on_raided` → `show_event_alert(&"raid")` + `destructibles_names(raider, viewers)` | Orange "<raider> is raiding with N viewers!" banner + discord sfx (as for follow). One name per raiding viewer when names are on. | alert: yes, `event_alerts`. Names: partial (as above) | same |
 | `channel.cheer` (only when the relay is **not** configured, see `RSMain.cheer_source`) | `RSCustom.on_cheered` | Cheerer's name, `clamp(bits/100, 1, 20)` copies. Anonymous cheers do nothing. | partial (as above) | same |
-| `channel.subscribe` | `RSCustom.on_subscribed` (empty) and `RSSummaryMng._on_subscribed` | Nothing visible. Recorded in the summary. | yes, `eventsub_follow_raid_cheer_sub` (summary tracks the user) | same |
+| `channel.subscribe` | `RSCustom.on_subscribed` → `show_event_alert(&"sub")`, and `RSSummaryMng._on_subscribed` | Purple "<name> subscribed at Tier N!" (or "<name> got a gifted Tier N sub!") banner + discord sfx (as for follow). No falling names. Recorded in the summary. | yes, `event_alerts` (alert) and `eventsub_follow_raid_cheer_sub` (summary tracks the user) | same |
 | First chat message of the session | `RSCustom.on_first_session_message` | Only if OBS reports the stream is live: refresh the user's colour, drop their name, queue an auto shoutout | no: needs OBS and Twitch | same |
 | EventSub payload parsing | `classes/RSTwitchEventData.gd:create_from_event_body` | Fields map correctly for every type | yes, `event_payload_parse` | same |
 
@@ -170,6 +170,7 @@ Websocket to `NIVEK_RELAY_URL` (default
 | Feature | Entry point | Correct run | Headless | Platform |
 |---|---|---|---|---|
 | Alert bar overlay | `instances/alert_overlay.gd:instantiate_new_bar`, `alert_bar.gd` | Shaking pink text with a countdown bar. Runs its action when the time is up unless closed. | yes (via `reward_shut_down_stream_alert`) | same |
+| Follow / raid / sub alert | `RSCustom.show_event_alert(kind, text, color)` | A `CanvasLayer` named `EventAlert` (layer 100, below the jumpscare's 128; group `rs_event_alert`; meta `event_kind`) holding the Label `lb_event_alert`: 64 px outlined text centred across the top. It fades in over 0.3 s, holds 3 s, fades out over 0.3 s and frees itself. Alerts that overlap stack 90 px apart. The label ignores the mouse and isn't in the `UI` group, so it stays click-through. Plays `sfx/discord` through `RS.play_sfx`. | yes, `event_alerts` (node spawned, kind and text, freed, suppressed when disabled; no pixel checks) | same |
 | Vetting notifications | `RSVetting.custom_rewards_vetting` → `pnl_notifications.append_vetting_reward` | Unknown or flagged users' reward requests wait for streamer approval | no: needs a human decision | same |
 | Auto shoutout | `RSShoutoutMng.add_shoutout` / `_process` | Queued `/shoutout` with a cooldown | no: Twitch | same |
 | Summary panel | `instances/pnl_summary.gd` | End-of-stream list of chatters, cheerers, subs, raiders | toggle only (`menu_panel_toggles`) | same |
@@ -189,7 +190,8 @@ Shown at boot (config mode). Closing it enters overlay mode
 | peanutbudderbot device token + Save & Reconnect | `apply_device_token` | Saves settings immediately, restarts the relay, rebinds cheer consumers (`RSMain.rebind_cheer_source`) | yes with an empty token, `config_window` (save + relay stays disabled + cheers stay on twitcher). A real token needs network. | same |
 | Relay status label | `refresh_relay_status` | "No device token set…", "Using NIVEK_DEVICE_TOKEN from the environment…", "Using the token in nivek_relay.env…", "Connecting...", or "Connected." | yes, `config_window` (unset case) | same |
 | Chat notifications toggle | `_on_ck_chat_notifications_toggled` | Turns the notification burst on/off | yes, `config_window` + `chat_notification` | same |
-| Names on screen toggle | `_on_ck_names_on_screen_toggled` | Turns names on/off for follows, raids, cheers, `!n` and the names button | yes, `config_window` + `names_disabled_by_config` | same |
+| Names on screen toggle | `_on_ck_names_on_screen_toggled` | Turns names on/off for follows, raids, cheers, `!n` and the names button. Doesn't affect the follow/raid/sub alerts. | yes, `config_window` + `names_disabled_by_config` | same |
+| Follow / raid / sub alerts toggle (`ck_event_alerts`) | `_on_ck_event_alerts_toggled` → `RSSettings.event_alerts_enabled` (default on) | Turns the follow/raid/sub banner and its sound on/off | yes, `config_window` + `event_alerts` | same |
 | Toggle Debug View | `_on_btn_debug_pressed` | Toggles the debug view | same toggle as the menu (`menu_panel_toggles`) | same |
 | Config ↔ overlay mode | `RSMain.enter_config_mode` / `enter_overlay_mode`, `RSDisplay.start` / `exit_overlay` | Config: overlay invisible and fully click-through, config window visible. Overlay: transparent, always-on-top, click-through except UI. | state switch yes, `overlay_config_switch`. The visual result is manual (checklist below). | Wayland (patched engine): layer-shell surface, input regions. Wayland (stock engine): ordinary window for OBS capture (`RSDisplay.set_capture_window`). Windows: `always_on_top` plus the `rs_clickthrough` DLL (`WS_EX_TRANSPARENT`). |
 

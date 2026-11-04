@@ -88,6 +88,8 @@ const RS_SFX_FOLDER = "sfx/"
 # Overlay feature toggles, set from the configuration window (RSWinConfig).
 @export var chat_notifications_enabled := true
 @export var names_on_screen_enabled := true
+## Text banner + sound for follows, raids and subs (RSCustom.show_event_alert).
+@export var event_alerts_enabled := true
 
 @export var auto_connect : bool = false
 @export var max_messages_in_chat : int = 100
