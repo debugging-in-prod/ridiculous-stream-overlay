@@ -107,12 +107,12 @@ Registered only after Twitch connects. Every handler takes
 | Command (aliases) | Entry point | Correct run | Headless | Platform |
 |---|---|---|---|---|
 | `!add_me` | `RSUserMng._on_user_request_add` | Adds the chatter to known users | no: Twitch API lookup | same |
-| `!discord` | `RSCustom.discord` | Plays the discord sfx and posts the invite link | no: sends chat. **Probable bug:** it calls `RS.play_sfx("discord")`, which fills `_from_username`, so no sound plays (same cause as `!d`). | same |
+| `!discord` | `RSCustom.discord` | Plays the discord sfx and posts the invite link | no: sends chat | same |
 | `!c_source` | `c_source` | Plays `sfx_scissors.ogg` and posts a link | no: sends chat. The sfx isn't in `local_res` (loaded from the user data dir). | same |
 | `!knock` | `knock` | Plays `local_res/knock.mp3` | yes, `sfx_commands` | same |
 | `!pandano` | `pandano` | Restarts OBS media `Panda_no` | no: OBS | same |
 | `!whostream` | `whostream` | Posts which known users are live | no: Twitch API | same |
-| `!d` | `play_discord_notification` | Should play the `sfx/discord` player | yes, `sfx_commands` (`d`). **Currently FAILs:** `RS.play_sfx("discord")` passes `"discord"` as `_from_username`, so `which` is empty and nothing plays. | same |
+| `!d` | `play_discord_notification` | Plays the `sfx/discord` player | yes, `sfx_commands` (`d`) | same |
 | `!quack` | `RS.play_sfx.bind("quack")` | Plays `sfx_quack_01/02.ogg` | yes, `sfx_commands` (`quack`) | same |
 | `!toggle_music` | `toggle_music` | Toggles mute on OBS input `Mozilla` | no: OBS | same |
 | `!mika`, `!scawy`, `!irad` | `play_mika_system_of_a_down`, `play_scawy_dunkaccino`, `play_irad_being_irad` | Post chat. `!mika`/`!scawy` also play an sfx from the user data dir. | no: send chat, and the sfx aren't in `local_res` | same |
