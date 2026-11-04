@@ -372,6 +372,12 @@ func _test_kevin_extras_off() -> void:
 	var custom_sfx: AudioStreamPlayer = RS.custom.get_node("sfx_custom")
 	custom_sfx.stop()
 	var vp: VideoStreamPlayer = RS.custom.video_player
+	# Snapshot the player itself, not its parent: the parent is the rs_main root
+	# Control, which is always visible, so it can't show whether Beer Nye ran.
+	var vp_valid := is_instance_valid(vp)
+	var vp_visible_before: bool = vp_valid and vp.visible
+	var vp_playing_before: bool = vp_valid and vp.is_playing()
+	var vp_stream_before: VideoStream = vp.stream if vp_valid else null
 	var vb: VBoxContainer = RS.alert_scene.vb_cnt
 	var alerts_before := vb.get_child_count()
 	var bodies_before := _bodies()
@@ -395,7 +401,9 @@ func _test_kevin_extras_off() -> void:
 
 	var no_beans: bool = _bodies() == bodies_before
 	var no_jumpscare: bool = not _jumpscare_visible() and not RS.custom.jumpscare_sfx.playing
-	var no_video: bool = not is_instance_valid(vp) or not (vp.get_parent().visible or vp.is_playing())
+	# Beer Nye would assign the .ogv stream, show the player and start playback.
+	var no_video: bool = not vp_valid or (vp.visible == vp_visible_before \
+		and vp.is_playing() == vp_playing_before and vp.stream == vp_stream_before)
 	var no_alert: bool = vb.get_child_count() == alerts_before
 	var no_sfx: bool = not custom_sfx.playing
 	var silent: bool = no_beans and no_jumpscare and no_video and no_alert and no_sfx
@@ -581,7 +589,7 @@ func _test_beer_nye() -> void:
 	_begin()
 	var vp: VideoStreamPlayer = RS.custom.video_player
 	_eventsub("channel.channel_points_custom_reward_redemption.add", _reward_body("Beer Nye!"))
-	var ok: bool = await _until(func(): return is_instance_valid(vp) and vp.get_parent().visible and vp.is_playing(), 2.0)
+	var ok: bool = await _until(func(): return is_instance_valid(vp) and vp.visible and vp.is_playing(), 2.0)
 	var detail := "video visible+playing=%s stream=%s" % [ok, vp.stream.resource_path if is_instance_valid(vp) and vp.stream else "<none>"]
 	if is_instance_valid(vp):
 		vp.stop()
