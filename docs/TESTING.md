@@ -4,7 +4,7 @@ There are two automated headless tests and one manual checklist:
 
 | Test | What it covers | Pass marker | Typical time |
 |---|---|---|---|
-| `tests/smoke_all.tscn` | Every headless-testable feature in [FEATURES.md](FEATURES.md): one `SMOKE <name> OK\|FAIL <detail>` line per feature | `SMOKE_ALL_OK` | ~25 s |
+| `tests/smoke_all.tscn` | Every headless-testable feature in [FEATURES.md](FEATURES.md): one `SMOKE <name> OK\|FAIL <detail>` line per feature | `SMOKE_ALL_OK` | ~30 s |
 | `tests/laser_stress.tscn` | Regression test for the beans + laser physics hang (issue #9 / PR #10) | `STRESS_OK` | ~30 s |
 | [FEATURES.md → Manual by-eye checklist](FEATURES.md#manual-by-eye-checklist) | Transparency, always-on-top, click-through, window fit, config round-trip. These can't be checked headless. | you | ~5 min |
 
@@ -121,13 +121,20 @@ process tree (`taskkill /T /F`).
   text contains the user's name. It then waits for the alerts to free
   themselves, sets `RS.settings.event_alerts_enabled = false`, replays the three
   events and asserts that no alert spawns. Only nodes are checked, no pixels.
+- `event_alerts_gift_bomb` fires 15 gifted `channel.subscribe` events in one
+  frame. It asserts that at most `RSCustom.EVENT_ALERT_MAX_SLOTS` (4) alerts are
+  live, that every `lb_event_alert` sits in a valid slot whose bottom fits the
+  configured window height (`display/window/size/viewport_height`, not the
+  64x64 headless viewport), and that the
+  sfx was requested exactly once (`RS.custom.event_alert_sfx_plays`). Then it
+  waits for the alerts to free themselves.
 
 Not covered, and why: see the "Headless" column in [FEATURES.md](FEATURES.md).
 In short: anything that needs OBS, Twitch chat/API, a browser or external
 program, a human decision, real rendering (the names text is read back from a
 SubViewport, which the dummy renderer can't do), or a real window manager.
 
-All 28 checks are expected to pass.
+All 29 checks are expected to pass.
 
 ## Turning failures into GitHub issues
 

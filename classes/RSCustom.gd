@@ -24,6 +24,9 @@ const EVENT_ALERT_LAYER := 100 # above panels, below JumpscareLayer (128)
 const EVENT_ALERT_FONT_SIZE := 64
 const EVENT_ALERT_TOP := 80.0
 const EVENT_ALERT_SPACING := 90.0
+# At most this many alerts are on screen at once. A further alert replaces the
+# oldest live one and reuses its slot, so a gift-sub bomb never stacks off-screen.
+const EVENT_ALERT_MAX_SLOTS := 4
 const EVENT_ALERT_FADE := 0.3
 const EVENT_ALERT_HOLD := 3.0
 const EVENT_ALERT_COLOR_FOLLOW := Color("00ec4f")
@@ -34,6 +37,10 @@ const EVENT_ALERT_COLOR_SUB := Color("b266ff")
 @export var jumpscare_image: TextureRect
 @export var jumpscare_sfx: AudioStreamPlayer
 @export var file_dialog: FileDialog
+
+## Times show_event_alert requested its sfx (read by tests/smoke_all.gd).
+var event_alert_sfx_plays := 0
+var _event_alert_seq := 0
 
 func start():
 	_log.i("Started")
@@ -239,6 +246,15 @@ func add_notification_scene(user: RSUser) -> void:
 	new_notif_inst.start(user)
 
 
+## Alerts currently on screen: in EVENT_ALERT_GROUP and not queued for deletion.
+func live_event_alerts() -> Array[Node]:
+	var out: Array[Node] = []
+	for n in get_tree().get_nodes_in_group(EVENT_ALERT_GROUP):
+		if not n.is_queued_for_deletion():
+			out.append(n)
+	return out
+
+
 func _event_name(display_name: String, username: String) -> String:
 	if not display_name.is_empty(): return display_name
 	if not username.is_empty(): return username
@@ -247,20 +263,36 @@ func _event_name(display_name: String, username: String) -> String:
 
 ## On-screen alert for follows, raids and subs: a big outlined Label on its own
 ## CanvasLayer (group EVENT_ALERT_GROUP, meta "event_kind" = kind), faded in,
-## held, faded out and freed. Concurrent alerts stack downwards. The label is
+## held, faded out and freed. Concurrent alerts stack downwards in at most
+## EVENT_ALERT_MAX_SLOTS slots; past that, a new alert replaces the oldest live
+## one in its slot. The sfx plays only when no other alert is live. The label is
 ## not in the "UI" group and ignores the mouse, so it stays click-through.
 ## Returns the layer, or null when RS.settings.event_alerts_enabled is off.
 func show_event_alert(kind: StringName, text: String, color: Color) -> CanvasLayer:
 	if not RS.settings.event_alerts_enabled: return null
-	var slot: int = 0
-	for n in get_tree().get_nodes_in_group(EVENT_ALERT_GROUP):
-		if not n.is_queued_for_deletion():
-			slot += 1
+	var live := live_event_alerts()
+	var used_slots := {}
+	var oldest: Node = null
+	for n in live:
+		used_slots[int(n.get_meta("slot", 0))] = true
+		if oldest == null or int(n.get_meta("seq", 0)) < int(oldest.get_meta("seq", 0)):
+			oldest = n
+	var slot: int = -1
+	for i in EVENT_ALERT_MAX_SLOTS:
+		if not used_slots.has(i):
+			slot = i
+			break
+	if slot == -1: # every slot busy: drop the oldest alert and take its slot
+		slot = int(oldest.get_meta("slot", 0))
+		oldest.queue_free()
+	_event_alert_seq += 1
 
 	var layer := CanvasLayer.new()
 	layer.name = "EventAlert"
 	layer.layer = EVENT_ALERT_LAYER
 	layer.set_meta("event_kind", kind)
+	layer.set_meta("slot", slot)
+	layer.set_meta("seq", _event_alert_seq)
 	layer.add_to_group(EVENT_ALERT_GROUP)
 
 	var lb := Label.new()
@@ -268,6 +300,8 @@ func show_event_alert(kind: StringName, text: String, color: Color) -> CanvasLay
 	lb.text = text
 	lb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	lb.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# Overlong names get an ellipsis instead of widening the label off-screen.
+	lb.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	lb.add_theme_font_size_override("font_size", EVENT_ALERT_FONT_SIZE)
 	lb.add_theme_color_override("font_color", color)
 	lb.add_theme_color_override("font_outline_color", Color.BLACK)
@@ -285,7 +319,10 @@ func show_event_alert(kind: StringName, text: String, color: Color) -> CanvasLay
 	tw.tween_property(lb, "modulate:a", 0.0, EVENT_ALERT_FADE)
 	tw.tween_callback(layer.queue_free)
 
-	RS.play_sfx("", null, PackedStringArray(), EVENT_ALERT_SFX)
+	# One sound per burst: only an alert that starts while none is live plays it.
+	if live.is_empty():
+		event_alert_sfx_plays += 1
+		RS.play_sfx("", null, PackedStringArray(), EVENT_ALERT_SFX)
 	_log.i("Event alert (%s): %s" % [kind, text])
 	return layer
 

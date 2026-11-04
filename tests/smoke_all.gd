@@ -256,6 +256,7 @@ func _run() -> void:
 	await _test_names_toggle_off()
 	await _test_eventsub_events_dispatch()
 	await _test_event_alerts()
+	await _test_event_alerts_gift_bomb()
 	await _test_alert_stop_streaming()
 	await _test_summary_start()
 
@@ -628,6 +629,48 @@ func _test_event_alerts() -> void:
 	RS.settings.names_on_screen_enabled = true
 	_report("event_alerts", ok and freed and suppressed, "%s (names off) freed_after_hold=%s disabled_suppresses=%s" % [
 		" ".join(results), freed, suppressed])
+
+
+func _test_event_alerts_gift_bomb() -> void:
+	# A gift-sub bomb: 15 channel.subscribe events in one frame. At most
+	# EVENT_ALERT_MAX_SLOTS alerts may be live, every label must sit in a valid
+	# slot that fits the configured window height, and the sfx must be requested
+	# exactly once for the whole burst.
+	_begin()
+	for n in _event_alerts():
+		n.queue_free()
+	await get_tree().process_frame
+	RS.settings.names_on_screen_enabled = false
+	RS.settings.event_alerts_enabled = true
+	var sfx_before: int = RS.custom.event_alert_sfx_plays
+	for i in 15:
+		_eventsub("channel.subscribe", {"user_id": str(SMOKE_USER_ID), "user_login": SMOKE_USER,
+			"user_name": "RsoSmokeUser", "tier": "1000", "is_gift": true})
+	await _physics_frames(3) # let the labels lay out
+	var live := _event_alerts()
+	var count_ok: bool = live.size() >= 1 and live.size() <= RSCustom.EVENT_ALERT_MAX_SLOTS
+	# Headless runs use a tiny (64x64) viewport, so check against the project's
+	# configured window height instead of the live viewport. Labels are anchored
+	# top-wide with fixed pixel offsets, so their y does not depend on viewport size.
+	var win_h := float(ProjectSettings.get_setting("display/window/size/viewport_height", 1080))
+	var max_bottom := RSCustom.EVENT_ALERT_TOP + RSCustom.EVENT_ALERT_MAX_SLOTS * RSCustom.EVENT_ALERT_SPACING
+	var slots_fit := max_bottom <= win_h
+	var offscreen := 0
+	for n in live:
+		var lb: Label = n.get_node_or_null("lb_event_alert") as Label
+		var slot := int(n.get_meta("slot", -1))
+		var in_bounds := lb != null and slot >= 0 and slot < RSCustom.EVENT_ALERT_MAX_SLOTS \
+			and is_equal_approx(lb.offset_top, RSCustom.EVENT_ALERT_TOP + slot * RSCustom.EVENT_ALERT_SPACING) \
+			and lb.offset_bottom <= max_bottom
+		if not in_bounds:
+			offscreen += 1
+	var sfx_plays: int = RS.custom.event_alert_sfx_plays - sfx_before
+	var freed: bool = await _until(func(): return _event_alerts().is_empty(),
+		RSCustom.EVENT_ALERT_HOLD + 2.0 * RSCustom.EVENT_ALERT_FADE + 2.0)
+	RS.settings.names_on_screen_enabled = true
+	_report("event_alerts_gift_bomb", count_ok and slots_fit and offscreen == 0 and sfx_plays == 1 and freed,
+		"15 subs -> live=%d (max %d) offscreen=%d slots_bottom=%.0f window_h=%.0f sfx_plays=%d freed=%s" % [
+		live.size(), RSCustom.EVENT_ALERT_MAX_SLOTS, offscreen, max_bottom, win_h, sfx_plays, freed])
 
 
 func _test_alert_stop_streaming() -> void:
