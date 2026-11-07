@@ -114,10 +114,15 @@ Done when:
 
 Done so far: laser hang (PR #10), ImageMagick path and missing add-ons
 (PR #12), fit helper wired in and 1.6x scale dropped (PR #11), smoke test
-(PR #13), README (this PR).
+(PR #13), README (this PR). The laser stress test now applies the same
+relay and Twitch stubs as the smoke test (`tests/test_isolation.gd`), with a
+regression check `tests/isolation_check.tscn` (this PR, not yet run).
 
 Remaining work items:
-- Run the smoke test and laser stress test on the Windows laptop.
+- Run the smoke test, laser stress test and isolation check on the Windows
+  laptop.
+- Run `isolation_check` and the laser stress test once on a Linux machine
+  other than co1n, to confirm the new isolation at runtime.
 - Do the manual checklist on Windows, including window fit. If the window
   still overflows, fix the boot size itself (for example a smaller default
   viewport, or sizing before the window is shown) rather than relying only on

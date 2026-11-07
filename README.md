@@ -110,7 +110,8 @@ reward and the floating-menu test button, which uses PowerShell).
 ## Testing
 
 - Feature inventory and manual checklist: [docs/FEATURES.md](docs/FEATURES.md).
-- Headless smoke test and laser stress test: [docs/TESTING.md](docs/TESTING.md).
+- Headless smoke test, laser stress test and isolation check:
+  [docs/TESTING.md](docs/TESTING.md).
   Use the wrappers (`tests/run_smoke.sh`, `tests/run_smoke.ps1`); they use a
   throwaway data directory so your real settings and relay cursor are not
   touched.
