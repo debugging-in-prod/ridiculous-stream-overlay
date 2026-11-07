@@ -132,8 +132,10 @@ covered by the smoke test, with no behaviour change unless stated.
 
 Done so far: removed the unused chat-format helper (`RSPnlChat.format_msg`,
 `commands_string_format`) and the commented-out TTS command registrations
-(this PR). `RSCustom.tts()` is still used by `yag_welcome_back`, and
-`parse_tts_command` is kept.
+(PR #21). `RSCustom.tts()` is still used by `yag_welcome_back`, and
+`parse_tts_command` is kept. `config/features` in `project.godot` now says
+"GL Compatibility" instead of "Forward Plus", matching the
+`gl_compatibility` renderer (this PR).
 
 Candidates (pick what is cheap; skip anything that grows):
 - Rename the C#-style `RSMousePass.SetClickThrough` to `set_click_through`
@@ -145,8 +147,6 @@ Candidates (pick what is cheap; skip anything that grows):
   removal.
 - Remove or wire up dead code: long commented-out blocks whose feature is not
   coming back.
-- Fix `config/features` in `project.godot`: it lists "Forward Plus", but the
-  renderer is `gl_compatibility`.
 - Fix obvious typos in user-visible or log text (`RIDICULOS STREAM STARTED`).
   Reward titles such as `Granades!` must match the Twitch reward, so leave
   those unless the reward is renamed too.
