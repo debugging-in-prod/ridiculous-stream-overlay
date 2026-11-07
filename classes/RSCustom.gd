@@ -88,15 +88,6 @@ func add_commands() -> void:
 	_cmd("zeroG", zero_g, "Beans in space!", 0, -1, ["zerog", "0g", "0G"])
 	_cmd("g", spawn_grenade, "Spawn grenades on stream", 0, 1, ["grenade", "granade", "grandma", "grenades"])
 
-	#RS.twitcher.add_command("tts", parse_tts_command, 1, 256)
-	#RS.twitcher.add_command("tts_gb", parse_tts_command.bind("en_GB"), 1, 256)
-	#RS.twitcher.add_command("tts_us", parse_tts_command.bind("en_US"), 1, 256)
-	#RS.twitcher.add_command("tts_it", parse_tts_command.bind("it_IT"), 1, 256)
-	#RS.twitcher.add_command("tts_es", parse_tts_command.bind("es_ES"), 1, 256)
-	#RS.twitcher.add_command("tts_fr", parse_tts_command.bind("fr_FR"), 1, 256)
-	#RS.twitcher.add_command("tts_de", parse_tts_command.bind("de_DE"), 1, 256)
-	#RS.twitcher.add_command("tts_pl", parse_tts_command.bind("pl_PL"), 1, 256)
-	#RS.twitcher.add_command("tts_ru", parse_tts_command.bind("ru_RU"), 1, 256)
 	_log.i("Command added to the handler.")
 
 

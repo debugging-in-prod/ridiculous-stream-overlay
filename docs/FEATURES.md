@@ -165,7 +165,7 @@ Registered only after Twitch connects. Every handler takes
 | `!nuke` | `nuke` | See menu nuke | yes, via `menu_nuke` (same function) | same |
 | `!zeroG [secs]` (`zerog`, `0g`, `0G`) | `zero_g` | Gravity 0 for 1–180 s (default 30) | yes, `cmd_zero_g` | same |
 | `!g [n]` (`grenade`, `granade`, `grandma`, `grenades`) | `spawn_grenade` | n grenades, n wrapped to 0–5 (69 allowed) | yes, via `menu_grenade` (same spawn) | same |
-| TTS commands | commented out in `add_commands` | n/a | n/a | `DisplayServer.tts_*` is OS-dependent |
+| TTS commands | none registered; `RSCustom.parse_tts_command` is kept but not called | n/a | n/a | `DisplayServer.tts_*` is OS-dependent |
 
 Chat text triggers in `RSCustom.on_chat` (any chat message):
 - A message not starting with `!` → `add_notification_scene`. Generic, always on.
@@ -203,7 +203,6 @@ Websocket to `NIVEK_RELAY_URL` (default
 | Live chat list | `RSPnlChat._on_chat_message` → `put_chat_entry` | Each message shows with badges, emotes and the user's colour. Capped at `max_display_messages` (200). Auto-scrolls. | no: `EntryChatMessage.populate` fetches badges/emotes through `TwitchMediaLoader`, and unknown users through the Twitch API | same |
 | Click a username | `_on_chat_entry_username_pressed` → `context_menu_chat` | A context menu for that user | no: needs input | same |
 | Send chat / announcement | `_on_ln_msg_text_submitted`, `_on_ln_announce_text_submitted` | Posts a message or announcement as the broadcaster | no: Twitch | same |
-| Chat text effects (`!rb`, `!big`, `!wave`…) | `RSPnlChat.format_msg` | unknown: `format_msg` and `commands_string_format` aren't called anywhere | n/a | |
 | Chat notification burst | `RSCustom.add_notification_scene` → `instances/msg_notification.gd:start` | Particles in the four corners plus a per-user notification sfx. Freed after 1.5 s. Suppressed when "Chat notifications" is off. | yes, `chat_notification` | same |
 
 ## 4. Other panels and alerts
