@@ -122,7 +122,8 @@ Remaining work items:
 - Run the smoke test, laser stress test and isolation check on the Windows
   laptop.
 - Run `isolation_check` and the laser stress test once on a Linux machine
-  other than co1n, to confirm the new isolation at runtime.
+  other than co1n, to confirm the new isolation at runtime
+  (`tests/verify_isolation.sh <godot>` runs both plus the smoke test).
 - Do the manual checklist on Windows, including window fit. If the window
   still overflows, fix the boot size itself (for example a smaller default
   viewport, or sizing before the window is shown) rather than relying only on
