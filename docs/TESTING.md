@@ -1,18 +1,35 @@
 # Testing
 
-There are two automated headless tests and one manual checklist:
+There are three automated headless tests and one manual checklist:
 
 | Test | What it covers | Pass marker | Typical time |
 |---|---|---|---|
 | `tests/smoke_all.tscn` | Every headless-testable feature in [FEATURES.md](FEATURES.md): one `SMOKE <name> OK\|FAIL <detail>` line per feature | `SMOKE_ALL_OK` | ~30 s |
 | `tests/laser_stress.tscn` | Regression test for the beans + laser physics hang (issue #9 / PR #10) | `STRESS_OK` | ~30 s |
+| `tests/isolation_check.tscn` | Regression check for the network stubs `laser_stress` uses (`tests/test_isolation.gd`), with dummy relay config and a local listener | `ISOLATION_OK` | not yet measured |
 | [FEATURES.md → Manual by-eye checklist](FEATURES.md#manual-by-eye-checklist) | Transparency, always-on-top, click-through, window fit, config round-trip. These can't be checked headless. | you | ~5 min |
 
-Both automated tests boot the real `RS` autoload (`rs_main.tscn`). They must
-run with a **throwaway user data dir**. Otherwise they load your real
-`settings.tres`, connect the nivek relay with your device token, replay relay
-events and move your real relay cursor forward. Use the wrapper scripts below,
-which set this up for you.
+All three automated tests boot the real `RS` autoload (`rs_main.tscn`). The
+isolation comes from two places:
+
+- **The wrapper** (`tests/run_smoke.sh`, `tests/run_smoke.ps1`) gives each run
+  a throwaway user data dir and unsets `NIVEK_DEVICE_TOKEN` and
+  `NIVEK_RELAY_URL`.
+- **The test script** blanks the relay and Twitch settings in memory, pins the
+  relay's `nivek_relay.env` cache empty so a file in the checkout is never
+  read, and refuses to run outside the throwaway data dir.
+  - `smoke_all.gd` does this itself.
+  - `laser_stress.gd` and `isolation_check.gd` use `tests/test_isolation.gd`.
+
+The wrapper alone is not enough. Without the test-side stubs, a run reads
+`res://nivek_relay.env` and can reach the production relay. Without the
+wrapper, a run uses your real `settings.tres`, Twitch tokens and relay cursor.
+
+**Scope:** these stubs cover the nivek relay and Twitch startup
+(`RSTwitcher.start()` aborts). They do not make the app fully offline. Nodes
+in the Twitcher add-on run their `_ready` before any test script, and they
+only stay quiet because the throwaway data dir has no Twitch tokens. Other
+code paths that may use the network have not been audited for these tests.
 
 ## `test/` and `tests/`
 
@@ -45,16 +62,14 @@ So the full `RS` autoload boots, and `RSMain.start_everything()` starts the
 nivek relay. The smoke harness adds protections that a plain `--script`
 run does not get:
 
-| Protection | `tests/run_smoke.*` + `smoke_all.gd` | Plain `--script` run |
+| Protection | `tests/run_smoke.*` + the test scene | Plain `--script` run |
 |---|---|---|
-| Throwaway user data dir | the wrapper sets one, and `smoke_all.gd` fails and stops if it isn't in use | only if you set it yourself |
+| Throwaway user data dir | the wrapper sets one, and the test fails and stops if it isn't in use | only if you set it yourself |
 | `NIVEK_DEVICE_TOKEN` / `NIVEK_RELAY_URL` env vars cleared | the wrapper clears them | only if you clear them yourself |
-| `res://nivek_relay.env` ignored | `smoke_all.gd` empties the relay's env-file cache | **no**: `RSNivekRelay` reads the file from the checkout |
-| Relay and Twitch settings blanked | `smoke_all.gd` blanks them | only if the data dir is fresh |
+| `res://nivek_relay.env` ignored | the test empties the relay's env-file cache | **no**: `RSNivekRelay` reads the file from the checkout |
+| Relay and Twitch settings blanked | the test blanks them | only if the data dir is fresh |
 
-`laser_stress.tscn` gets the first two protections from the wrapper but
-not the last two. It doesn't ignore `res://nivek_relay.env`, so run it from
-a checkout without that file too.
+This applies to `smoke_all`, `laser_stress` and `isolation_check`.
 
 The relay reads its settings from three places, in this order: env vars,
 then `res://nivek_relay.env` in the checkout, then `settings.tres` in the
@@ -138,7 +153,21 @@ tests/run_smoke.sh flatpak
 
 # laser stress through the same wrapper (isolation + watchdog)
 SMOKE_SCENE=res://tests/laser_stress.tscn SMOKE_MARKER=STRESS_OK tests/run_smoke.sh flatpak
+
+# isolation regression check (from a checkout without nivek_relay.env)
+SMOKE_SCENE=res://tests/isolation_check.tscn SMOKE_MARKER=ISOLATION_OK tests/run_smoke.sh flatpak
 ```
+
+Prerequisites for the laser stress run:
+- Use the wrapper. It supplies the throwaway data dir and `RSO_SMOKE_DATA_DIR`.
+  Without it, `laser_stress` prints `STRESS_FAIL` and exits 1. But by then the
+  Twitcher add-on has already read your real tokens.
+- The test itself ignores `nivek_relay.env` and blanks Twitch, and it prints
+  `STRESS_FAIL` if the relay or Twitch came up anyway.
+- Run `isolation_check` once on a new machine or engine build, from a checkout
+  **without** `nivek_relay.env`. It reports `clean_checkout FAIL` if the file
+  is present. It proves the stubs land before the relay starts.
+- Not on co1n: see the warning above about its Flatpak build.
 
 Options (environment variables):
 - `SMOKE_TIMEOUT`: watchdog in seconds, default 90.
@@ -158,8 +187,9 @@ How the isolation works:
   `flatpak run --env=...`. The wrapper therefore exports it *inside* the
   sandbox (`flatpak run --command=sh … -c 'export XDG_DATA_HOME=…; exec godot …'`).
   The dir sits under `$HOME` because the sandbox's `/tmp` is private. If you
-  run laser_stress by hand with `XDG_DATA_HOME=$(mktemp -d) flatpak run …`, as
-  its header comment suggests, **it uses your real data dir**.
+  run a test by hand with `XDG_DATA_HOME=$(mktemp -d) flatpak run …`, **it uses
+  your real data dir**. The test then refuses to continue (`RSO_SMOKE_DATA_DIR`
+  doesn't match), but Twitcher add-on nodes have already read your real tokens.
 - The Flatpak needs filesystem access to the repo. The Flathub build ships
   with `filesystems=host`.
 
@@ -168,8 +198,12 @@ Manual run without the wrapper (native binary only):
 ```bash
 D=$(mktemp -d)
 RSO_SMOKE_DATA_DIR=$D XDG_DATA_HOME=$D /path/to/godot --headless --path . res://tests/smoke_all.tscn
-XDG_DATA_HOME=$D /path/to/godot --headless --path . res://tests/laser_stress.tscn
+RSO_SMOKE_DATA_DIR=$D XDG_DATA_HOME=$D /path/to/godot --headless --path . res://tests/laser_stress.tscn
 ```
+
+These don't unset `NIVEK_DEVICE_TOKEN` / `NIVEK_RELAY_URL` the way the wrapper
+does. The test scripts unset them in-process before the relay starts, but
+prefer the wrapper.
 
 ## Running on Windows (PowerShell)
 
@@ -181,7 +215,17 @@ $env:GODOT = 'C:\Godot\Godot_v4.6.1-stable_win64_console.exe'; .\tests\run_smoke
 $env:SMOKE_SCENE = 'res://tests/laser_stress.tscn'; $env:SMOKE_MARKER = 'STRESS_OK'
 .\tests\run_smoke.ps1 C:\Godot\Godot_v4.6.1-stable_win64_console.exe
 Remove-Item Env:SMOKE_SCENE, Env:SMOKE_MARKER
+
+# isolation regression check (from a checkout without nivek_relay.env)
+$env:SMOKE_SCENE = 'res://tests/isolation_check.tscn'; $env:SMOKE_MARKER = 'ISOLATION_OK'
+.\tests\run_smoke.ps1 C:\Godot\Godot_v4.6.1-stable_win64_console.exe
+Remove-Item Env:SMOKE_SCENE, Env:SMOKE_MARKER
 ```
+
+The laser stress prerequisites are the same as on Linux: use the wrapper, and
+run `isolation_check` once from a checkout without `nivek_relay.env`. The
+isolation check listens on `127.0.0.1` only. Windows Firewall normally doesn't
+prompt for loopback, but this hasn't been tried on Windows.
 
 The wrapper takes the same options and exit codes as on Linux. It isolates the
 data dir by pointing `APPDATA` at a temp folder. Godot stores user data in

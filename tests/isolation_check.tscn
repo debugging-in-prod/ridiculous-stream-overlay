@@ -1,0 +1,6 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://tests/isolation_check.gd" id="1_iso"]
+
+[node name="IsolationCheck" type="Node"]
+script = ExtResource("1_iso")
