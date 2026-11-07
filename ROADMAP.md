@@ -135,11 +135,10 @@ Done so far: removed the unused chat-format helper (`RSPnlChat.format_msg`,
 (PR #21). `RSCustom.tts()` is still used by `yag_welcome_back`, and
 `parse_tts_command` is kept. `config/features` in `project.godot` now says
 "GL Compatibility" instead of "Forward Plus", matching the
-`gl_compatibility` renderer (this PR).
+`gl_compatibility` renderer (PR #22). `RSMousePass.SetClickThrough` is now
+`set_click_through` (this PR).
 
 Candidates (pick what is cheap; skip anything that grows):
-- Rename the C#-style `RSMousePass.SetClickThrough` to `set_click_through`
-  (the only PascalCase method left from the C# port).
 - Resolve the two chat limits: `RSSettings.max_messages_in_chat` (100) is
   unused, while `pnl_chat.max_display_messages` (200) is what applies. It is
   an exported setting, so existing `settings.tres` files contain it. Wire it

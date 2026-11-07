@@ -242,7 +242,7 @@ Shown at boot (config mode). Closing it enters overlay mode
 |---|---|---|---|
 | Transparency | `RSDisplay.start`, `RSMain.enter_config_mode` | Needs a compositor. Wayland honours per-pixel alpha. | Can lose alpha after fullscreen apps or monitor changes. Re-asserted on resize/focus (`_reassert_overlay`). |
 | Always-on-top | `RSDisplay.start` | Patched engine only (layer-shell layer 4 = Overlay). Stock Wayland ignores it silently. | `Window.always_on_top` |
-| Click-through | `classes/RSMousePass.gd:SetClickThrough`, `RSMouseTracker` | Wayland (patched): input regions from the rects of `UI`-group controls. X11: `RSClickThrough` exists, but the Linux build is a no-op stub, so X11 click-through is **unknown/likely broken**. Stock Wayland: none. | `RSClickThrough` GDExtension (`addons/rs_clickthrough/bin/*.dll`). Without it, falls back to `FLAG_MOUSE_PASSTHROUGH`, which doesn't pass clicks through. |
+| Click-through | `classes/RSMousePass.gd:set_click_through`, `RSMouseTracker` | Wayland (patched): input regions from the rects of `UI`-group controls. X11: `RSClickThrough` exists, but the Linux build is a no-op stub, so X11 click-through is **unknown/likely broken**. Stock Wayland: none. | `RSClickThrough` GDExtension (`addons/rs_clickthrough/bin/*.dll`). Without it, falls back to `FLAG_MOUSE_PASSTHROUGH`, which doesn't pass clicks through. |
 | Window fit | `RSDisplay.set_borderless_maximized`, `overlay_screen_index` | Patched: the output picked by `display/window/wayland/layer_screen` (-1 = largest), position (0,0). GNOME has no layer-shell. | Borderless at screen size and (0,0). Multi-monitor: unknown. |
 
 ---

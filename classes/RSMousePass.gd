@@ -78,9 +78,9 @@ func _ready() -> void:
 	set_process(_use_input_regions)
 
 
-## Named in PascalCase to stay signal-compatible with the C# original, which
-## RSMouseTracker.mouse_track_updated connects to directly.
-func SetClickThrough(clickthrough: bool) -> void:
+## Also connected to RSMouseTracker.mouse_track_updated in
+## RSMain.setup_mouse_passthrough.
+func set_click_through(clickthrough: bool) -> void:
 	_click_through = clickthrough
 	if not supported:
 		return

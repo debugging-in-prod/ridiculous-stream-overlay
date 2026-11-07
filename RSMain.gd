@@ -14,7 +14,7 @@ static var _log: TwitchLogger = TwitchLogger.new(&"RSMain")
 
 # Modules
 @onready var mouse_tracker: RSMouseTracker = %RSMouseTracker
-@onready var mouse_pass: Node = %RSMousePass # C# class
+@onready var mouse_pass: Node = %RSMousePass
 @onready var loader: RSLoader = %RSLoader
 @onready var user_mng: RSUserMng = %RSUserMng
 @onready var twitcher: RSTwitcher = %RSTwitcher
@@ -84,7 +84,7 @@ func setup_mouse_passthrough():
 	ui_elements.append(%split_chat)
 	for control: Control in ui_elements:
 		control.add_to_group("UI")
-	mouse_tracker.mouse_track_updated.connect(mouse_pass.SetClickThrough)
+	mouse_tracker.mouse_track_updated.connect(mouse_pass.set_click_through)
 	debug_view.start()
 
 
@@ -151,13 +151,13 @@ func start_everything() -> void:
 func enter_config_mode() -> void:
 	# Overlay out of the way: invisible (transparent) and unclickable (full
 	# passthrough), floating menu hidden -- so only the native, movable config
-	# window is visible. Order matters: hide the menu before SetClickThrough so the
+	# window is visible. Order matters: hide the menu before set_click_through so the
 	# passthrough region collector sees no visible UI and passes everything through.
 	mouse_tracker.is_active = false
 	btn_floating_menu.hide()
 	get_tree().root.transparent_bg = true
 	get_window().set_flag(Window.FLAG_TRANSPARENT, true)
-	mouse_pass.SetClickThrough(true)
+	mouse_pass.set_click_through(true)
 	win_config.show()
 	_log.i("config mode: overlay hidden + passthrough; config shown")
 

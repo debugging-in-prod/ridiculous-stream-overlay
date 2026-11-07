@@ -7,7 +7,7 @@ var is_active := true:
 	set(val):
 		is_active = val
 		set_process(is_active)
-		RS.mouse_pass.SetClickThrough(false)
+		RS.mouse_pass.set_click_through(false)
 
 var is_gui_active := false
 var is_on_a_control_node := false
