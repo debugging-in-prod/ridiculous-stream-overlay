@@ -3,7 +3,7 @@
 Ridiculous Stream: a transparent, click-through Godot overlay for Twitch streams. It has to work on **Windows and Linux** alike.
 
 ## Engine and language
-- Godot **4.6** (`config/features` in `project.godot`; it also lists "Forward Plus", but the renderer setting is `gl_compatibility`). Physics `Rapier2D` (`addons/godot-rapier2d`).
+- Godot **4.6** (`config/features` in `project.godot`), Compatibility renderer (`gl_compatibility`). Physics `Rapier2D` (`addons/godot-rapier2d`).
 - **GDScript only.** There is no C# on main, so a stock (non-.NET) Godot works. The upstream project, https://github.com/iRadEntertainment/ridiculous-stream-overlay, has moved to Godot 4.7 + C#. **Decided: we stay on our Godot 4.6 GDScript fork.** Treat upstream as a reference only; port ideas as GDScript, never bring C# back.
 - Native C++ only in `addons/rs_clickthrough/` (GDExtension for Windows click-through; the Linux build is a no-op stub). Rebuild steps are in its README.
 - Autoload `RS` = `rs_main.tscn` (script `RSMain.gd`). Core classes are in `classes/`, scenes and panels in `instances/`, OBS WebSocket code in `lib/no-obs-ws/`.
