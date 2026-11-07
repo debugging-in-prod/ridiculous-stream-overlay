@@ -56,7 +56,7 @@ signal all_started
 
 # ================================ INIT ========================================
 func _ready() -> void:
-	print_rich("[color=]=================================== RIDICULOS STREAM STARTED ===================================")
+	print_rich("[color=]=================================== RIDICULOUS STREAM STARTED ===================================")
 	load_settings()
 	await welcome_panel_check()
 	
@@ -159,7 +159,7 @@ func enter_config_mode() -> void:
 	get_window().set_flag(Window.FLAG_TRANSPARENT, true)
 	mouse_pass.SetClickThrough(true)
 	win_config.show()
-	_log.i("[RSMain] config mode: overlay hidden + passthrough; config shown")
+	_log.i("config mode: overlay hidden + passthrough; config shown")
 
 
 ## Overlay mode: the transparent, click-through desktop overlay; config hidden.
