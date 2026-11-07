@@ -2,19 +2,6 @@ extends Control
 class_name RSPnlChat
 
 
-const commands_string_format = {
-	"ACTION": "[i]%s[/i]",
-	"!rb": "[rainbow freq=1.0 sat=0.8 val=0.8]%s[/rainbow]",
-	"!big": "[font_size=64]%s[/font_size]",
-	"!small": "[font_size=12]%s[/font_size]",
-	"!wave": "[wave amp=50.0 freq=5.0 connect=1]%s[/wave]",
-	"!hl": "[bgcolor=ff0000][color=ffffff]%s[/color][/bgcolor]",
-	"!pulse": "[pulse freq=1.0 color=ffffff40 ease=-2.0]%s[/pulse]",
-	"!tornado": "[tornado radius=10.0 freq=1.0 connected=1]%s[/tornado]",
-	"!shake": "[shake rate=20.0 level=5 connected=1]%s[/shake]",
-	"!hd": "[bgcolor=21262e][color=21262e]%s[/color][/bgcolor]",
-}
-
 @export var max_display_messages: int = 200
 var sprite_effect : SpriteFrameEffect
 
@@ -59,11 +46,6 @@ func put_chat_entry(t_message: TwitchChatMessage) -> void:
 	#put_chat(t_message)
 	%vb_messages.add_child(chat_entry)
 
-
-func format_msg(key, _msg) -> String:
-	_msg = _msg.replacen(key+" ", "")
-	_msg = _msg.strip_edges()
-	return commands_string_format[key]%_msg
 
 #region Function Signals
 func _on_chat_entry_username_pressed(

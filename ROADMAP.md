@@ -130,14 +130,21 @@ Goal: remove the leftovers that make the code harder to change, before adding
 features. This is a tidy-up, not a rewrite: each item is a small, separate PR,
 covered by the smoke test, with no behaviour change unless stated.
 
+Done so far: removed the unused chat-format helper (`RSPnlChat.format_msg`,
+`commands_string_format`) and the commented-out TTS command registrations
+(this PR). `RSCustom.tts()` is still used by `yag_welcome_back`, and
+`parse_tts_command` is kept.
+
 Candidates (pick what is cheap; skip anything that grows):
 - Rename the C#-style `RSMousePass.SetClickThrough` to `set_click_through`
   (the only PascalCase method left from the C# port).
 - Resolve the two chat limits: `RSSettings.max_messages_in_chat` (100) is
-  unused, while `pnl_chat.max_display_messages` (200) is what applies.
-- Remove or wire up dead code: `RSPnlChat.format_msg` /
-  `commands_string_format` (never called), the commented-out TTS commands, and
-  long commented-out blocks whose feature is not coming back.
+  unused, while `pnl_chat.max_display_messages` (200) is what applies. It is
+  an exported setting, so existing `settings.tres` files contain it. Wire it
+  up or remove it on purpose in its own PR, not as part of a dead-code
+  removal.
+- Remove or wire up dead code: long commented-out blocks whose feature is not
+  coming back.
 - Fix `config/features` in `project.godot`: it lists "Forward Plus", but the
   renderer is `gl_compatibility`.
 - Fix obvious typos in user-visible or log text (`RIDICULOS STREAM STARTED`).
