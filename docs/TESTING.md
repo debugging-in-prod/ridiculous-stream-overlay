@@ -205,6 +205,40 @@ These don't unset `NIVEK_DEVICE_TOKEN` / `NIVEK_RELAY_URL` the way the wrapper
 does. The test scripts unset them in-process before the relay starts, but
 prefer the wrapper.
 
+### Verification sequence on a Linux test machine
+
+`tests/verify_isolation.sh` runs `isolation_check`, `laser_stress` and the
+smoke suite in that order, each through `tests/run_smoke.sh`, and stops at the
+first failure. Use it on a machine other than co1n, from a fresh clone:
+
+```bash
+git clone https://github.com/debugging-in-prod/ridiculous-stream-overlay.git rso-verify
+cd rso-verify
+tests/verify_isolation.sh /path/to/godot
+```
+
+What it adds on top of the wrapper:
+- Refuses (exit 2) on co1n (by hostname), in a checkout with `nivek_relay.env`, and unless
+  the binary is given as an explicit path (no PATH lookup, no Flatpak) and
+  reports Godot 4.6. The version check runs from a throwaway data dir.
+- Unsets `NIVEK_DEVICE_TOKEN` and `NIVEK_RELAY_URL` before any Godot
+  invocation. The first wrapper run does the one-time `--import` in its own
+  throwaway data dir.
+- Requires each `ISOLATION … OK` line, including the positive control
+  `control_connects`, the `STRESS: relay and Twitch inert` line, and no
+  `SMOKE … FAIL` line, on top of the pass markers.
+- Writes one log per step (`00-godot-version.log`, `01-isolation_check.log`,
+  `02-laser_stress.log`, `03-smoke_all.log`) to a new temp dir, or to
+  `VERIFY_LOG_DIR` if set (must be empty). It ends with a summary: commit,
+  Godot version, platform and each step's result. Exit code is 0 only if all
+  three steps pass; otherwise nonzero, and later steps are not run.
+
+Like the tests themselves, it covers the nivek relay and Twitch startup only.
+A pass does not show the app is fully offline (see **Scope** above). Linux
+only; on Windows run the `run_smoke.ps1` commands below in the same order
+(isolation check, laser stress, smoke test), stop at the first failure, and
+report the results separately from Linux.
+
 ## Running on Windows (PowerShell)
 
 ```powershell
