@@ -87,7 +87,7 @@ func start() -> void:
 	set_app_scale(RS.settings.app_scale)
 
 	var w := get_window()
-	_log.i("[RSDisplay] transparency: window FLAG_TRANSPARENT=%s  root.transparent_bg=%s  project.allowed=%s  project.transparent=%s  renderer=%s" % [
+	_log.i("transparency: window FLAG_TRANSPARENT=%s  root.transparent_bg=%s  project.allowed=%s  project.transparent=%s  renderer=%s" % [
 		w.get_flag(Window.FLAG_TRANSPARENT),
 		get_tree().root.transparent_bg,
 		ProjectSettings.get_setting("display/window/per_pixel_transparency/allowed"),
@@ -123,7 +123,7 @@ func exit_overlay() -> void:
 	# On Wayland the layer surface stays full-screen (resizing it is a no-op that
 	# can break rendering); opaque bg + full input make it a usable config screen
 	# with the config UI centered in it by the caller.
-	_log.i("[RSDisplay] exited overlay -> config mode (%s), window %s" % [DisplayServer.get_name(), win.size])
+	_log.i("exited overlay -> config mode (%s), window %s" % [DisplayServer.get_name(), win.size])
 
 
 ## Capture-mode presentation: a normal, decorated window at the project's
@@ -138,7 +138,7 @@ func set_capture_window() -> void:
 	current_window.borderless = false
 	current_window.size = design_size
 
-	_log.i("[RSDisplay] %s cannot host a desktop overlay; running as a %s capture window" % [
+	_log.i("%s cannot host a desktop overlay; running as a %s capture window" % [
 		DisplayServer.get_name(),
 		design_size,
 	])
@@ -162,7 +162,7 @@ func set_borderless_maximized(value: bool):
 		# top-left. screen_get_position() is compositor-global — 2560,0 for the
 		# ultrawide sitting to the right of another monitor — and the compositor
 		# would treat that as a 2560px offset from the ultrawide's own left edge.
-		_log.i("[RSDisplay] Moving window %d to output-local (0, 0) on screen %d and resizing it to %s" % [
+		_log.i("Moving window %d to output-local (0, 0) on screen %d and resizing it to %s" % [
 			current_window.get_window_id(),
 			screen,
 			screen_size,
@@ -171,7 +171,7 @@ func set_borderless_maximized(value: bool):
 		current_window.size = screen_size
 		current_window.position = Vector2i.ZERO
 
-		_log.i("[RSDisplay] Moved window %d to %s and resized it to %s" % [
+		_log.i("Moved window %d to %s and resized it to %s" % [
 			current_window.get_window_id(),
 			current_window.position,
 			current_window.size,
@@ -224,4 +224,4 @@ func _reassert_overlay() -> void:
 	set_borderless_maximized(true)
 
 	_reasserting = false
-	_log.i("[RSDisplay] re-asserted overlay window (transparency + geometry)")
+	_log.i("re-asserted overlay window (transparency + geometry)")
