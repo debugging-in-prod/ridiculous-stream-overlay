@@ -15,7 +15,7 @@ Ridiculous Stream: a transparent, click-through Godot overlay for Twitch streams
 - Enabled editor plugins: `kanban_tasks`, `script-ide`, `twitcher` (all bundled). `editorscriptmanager` and `ridiculous_coding` are gitignored upstream tools and are no longer enabled; don't re-add them to `project.godot`.
 - The app boots into config mode; closing the config window enters overlay mode (`RSMain.enter_config_mode` / `enter_overlay_mode`). The first-run welcome flow and the OBS module are disabled in code.
 - Startup window size: `project.godot` still sets 1920x1080 and `RSUtl.fit_and_center_window_to_display()` shrinks it at boot. That fix is not confirmed on the small Windows laptop where it overflowed, so don't treat the oversized-window issue as resolved.
-- Tests: `docs/TESTING.md` (headless smoke test `tests/smoke_all.tscn`, laser stress test; always use the `tests/run_smoke.*` wrappers so the real data dir isn't touched). Feature inventory and manual checklist: `docs/FEATURES.md`. `test/` holds manual developer scripts (listed in `docs/TESTING.md`; `--script` runs still load the `RS` autoload, so isolate the data dir).
+- Tests: `docs/TESTING.md` (headless smoke test `tests/smoke_all.tscn`, laser stress test; always use the `tests/run_smoke.*` wrappers so the real data dir isn't touched). Feature inventory and manual checklist: `docs/FEATURES.md`. `test/` holds manual developer scripts (listed in `docs/TESTING.md`; `--script` runs still load the `RS` autoload and start the nivek relay, so they need a clean checkout without `nivek_relay.env`, a throwaway data dir and the relay env vars unset).
 - Linux/Wayland details, including the patched-engine overlay, are in `LINUX.md` and `godot-patches/README.md`.
 
 ## nivek relay (`classes/RSNivekRelay.gd`)

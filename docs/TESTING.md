@@ -31,21 +31,90 @@ The two directories stay separate on purpose:
 | `test/steam_api_test.tscn` + `.gd` | `@tool` scene for trying `SteamService` / `ItchIOService` (`lib/games_info/`) from the inspector | Open the scene and pick a game in the inspector | Makes live requests to Steam and itch.io. The scene stores data from an earlier fetch. |
 | `test/test_browser_history_tab.gd` | `EditorScript` experiment that opens Brave's history page | Script editor → File → Run | Hardcoded Windows Brave path, not used by the app. Kept as is; whether it is still wanted is undecided. |
 
-`--script` still loads the project's autoloads (Godot 4.6 `main/main.cpp`
-loads them for a `--script` run as well as for a scene), so the `RS`
-autoload starts and uses your real user data dir unless you isolate it.
-The command in `pagination_test.gd`'s header comment does not isolate it.
-Isolate it the same way the wrappers do:
+### Running `test/` scripts with `--script`
+
+**Do not use the command in `pagination_test.gd`'s header comment.** It
+runs against your real user data dir and your checkout's relay config.
+
+**Do not run Godot on co1n** (the streaming PC) for any of this: its
+Flatpak build can touch the real overlay data.
+
+A `--script` run is not the smoke harness. Godot 4.6 loads the project's
+autoloads for a `--script` run just as it does for a scene (`main/main.cpp`).
+So the full `RS` autoload boots, and `RSMain.start_everything()` starts the
+nivek relay. The smoke harness adds protections that a plain `--script`
+run does not get:
+
+| Protection | `tests/run_smoke.*` + `smoke_all.gd` | Plain `--script` run |
+|---|---|---|
+| Throwaway user data dir | the wrapper sets one, and `smoke_all.gd` fails and stops if it isn't in use | only if you set it yourself |
+| `NIVEK_DEVICE_TOKEN` / `NIVEK_RELAY_URL` env vars cleared | the wrapper clears them | only if you clear them yourself |
+| `res://nivek_relay.env` ignored | `smoke_all.gd` empties the relay's env-file cache | **no**: `RSNivekRelay` reads the file from the checkout |
+| Relay and Twitch settings blanked | `smoke_all.gd` blanks them | only if the data dir is fresh |
+
+`laser_stress.tscn` gets the first two protections from the wrapper but
+not the last two. It doesn't ignore `res://nivek_relay.env`, so run it from
+a checkout without that file too.
+
+The relay reads its settings from three places, in this order: env vars,
+then `res://nivek_relay.env` in the checkout, then `settings.tres` in the
+user data dir. Its URL falls back to the production URL. A fresh data dir
+and cleared env vars therefore do **not** stop it: if the checkout has a
+`nivek_relay.env` with a device token, the run connects to production
+nivek with that token and a fresh cursor.
+
+A `--script` run is only offline when all three of these hold:
+
+1. **A clean test checkout with no `nivek_relay.env`.** Use a separate
+   clone, not your working checkout, and don't copy the file into it.
+   Moving the file aside in a dev checkout also works, but it's easy to
+   forget to move it back, or to have it restored mid-run. A fresh clone
+   needs the one-time `--import` (see Requirements).
+2. **A throwaway user data dir.** It holds `settings.tres` (Twitch and
+   relay credentials), `auth.conf` (Twitch token) and the relay cursor.
+   With an empty data dir, `RSTwitcher.start()` stops at
+   `is_twitcher_setup()` and the relay has no token from settings.
+3. **`NIVEK_DEVICE_TOKEN` and `NIVEK_RELAY_URL` unset** in the environment
+   that Godot actually runs in.
+
+Other config sources, checked by reading the code. None needs a precaution
+beyond the three above:
+- `twitch_oauth_*.tres` are gitignored, and `rs_main.tscn` doesn't reference
+  them.
+- The Twitch values baked into `rs_main.tscn` are only used after the
+  `is_twitcher_setup()` check, which reads from the user data dir.
+- `project.godot` has no `ridiculous_stream/*` credential settings.
+- The OBS module is disabled.
+
+Not checked: whether Twitcher add-on nodes make network calls on their own
+before that gate.
+
+These commands have **not been run**. Check the log for
+`nivek relay disabled` before trusting a run.
+
+Linux, native binary, from the clean test checkout:
 
 ```bash
-D=$(mktemp -d)
-env -u NIVEK_DEVICE_TOKEN -u NIVEK_RELAY_URL XDG_DATA_HOME=$D \
-  /path/to/godot --headless --path . --script res://test/twitcher/pagination_test.gd
+if [ -e nivek_relay.env ]; then
+  echo "nivek_relay.env present: use a clean checkout" >&2
+else
+  D=$(mktemp -d)
+  env -u NIVEK_DEVICE_TOKEN -u NIVEK_RELAY_URL XDG_DATA_HOME=$D \
+    /path/to/godot --headless --path . --script res://test/twitcher/pagination_test.gd
+fi
 ```
 
-On Windows, point `APPDATA` at a throwaway folder for that run, as
-`tests/run_smoke.ps1` does. For the Flatpak build, export the variable
-inside the sandbox (see Requirements).
+Windows: the same three conditions apply. Use a clean test checkout with no
+`nivek_relay.env`. In that PowerShell session, set `APPDATA` to a throwaway
+folder and remove `Env:NIVEK_DEVICE_TOKEN` and `Env:NIVEK_RELAY_URL`, as
+`tests/run_smoke.ps1` does. Use a new PowerShell window so the changed
+`APPDATA` doesn't leak into other work.
+
+Flatpak: the same three conditions apply. The clean checkout must be the
+directory passed to `--path`. Export `XDG_DATA_HOME` *inside* the sandbox,
+because Flatpak overrides the host value (see Requirements). Host variables
+such as `NIVEK_DEVICE_TOKEN` can pass into the sandbox, so unset the relay
+variables inside it too, as `tests/run_smoke.sh` does.
 
 ## Requirements
 

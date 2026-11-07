@@ -138,7 +138,7 @@ Done so far: removed the unused chat-format helper (`RSPnlChat.format_msg`,
 `gl_compatibility` renderer (PR #22). `RSMousePass.SetClickThrough` is now
 `set_click_through` (PR #23). `test/` (manual developer scripts) and `tests/`
 (automated, wrapper-isolated) stay separate, and `docs/TESTING.md` lists what
-each `test/` file is and how to run it safely (this PR).
+each `test/` file is and what a `--script` run needs to stay offline (this PR).
 
 Candidates (pick what is cheap; skip anything that grows):
 - Resolve the two chat limits: `RSSettings.max_messages_in_chat` (100) is
