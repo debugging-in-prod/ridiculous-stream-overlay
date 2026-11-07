@@ -14,6 +14,39 @@ run with a **throwaway user data dir**. Otherwise they load your real
 events and move your real relay cursor forward. Use the wrapper scripts below,
 which set this up for you.
 
+## `test/` and `tests/`
+
+The two directories stay separate on purpose:
+
+- `tests/` holds the automated headless tests above and their wrappers
+  (`run_smoke.sh`, `run_smoke.ps1`), which isolate the user data dir and
+  check for a pass marker under a watchdog.
+- `test/` holds manual developer scripts. No scene, script, wrapper or
+  setting references them, and nothing runs them automatically.
+
+| File | What it is | How to run it | Notes |
+|---|---|---|---|
+| `test/twitcher/pagination_test.gd` | Offline repro for the Twitcher paginated-response hang, using a fake transport | `--script`, see below | Prints `PASS`/`FAIL` but always exits 0. Matches the current add-on (`TwitchGetStreams.Response` has `_next_page` and `all()`). |
+| `test/user_update_test.gd` | `EditorScript` that prints a before/after table for `RSUser.update_with_user` | Script editor → File → Run | Prints only, no assertions. |
+| `test/steam_api_test.tscn` + `.gd` | `@tool` scene for trying `SteamService` / `ItchIOService` (`lib/games_info/`) from the inspector | Open the scene and pick a game in the inspector | Makes live requests to Steam and itch.io. The scene stores data from an earlier fetch. |
+| `test/test_browser_history_tab.gd` | `EditorScript` experiment that opens Brave's history page | Script editor → File → Run | Hardcoded Windows Brave path, not used by the app. Kept as is; whether it is still wanted is undecided. |
+
+`--script` still loads the project's autoloads (Godot 4.6 `main/main.cpp`
+loads them for a `--script` run as well as for a scene), so the `RS`
+autoload starts and uses your real user data dir unless you isolate it.
+The command in `pagination_test.gd`'s header comment does not isolate it.
+Isolate it the same way the wrappers do:
+
+```bash
+D=$(mktemp -d)
+env -u NIVEK_DEVICE_TOKEN -u NIVEK_RELAY_URL XDG_DATA_HOME=$D \
+  /path/to/godot --headless --path . --script res://test/twitcher/pagination_test.gd
+```
+
+On Windows, point `APPDATA` at a throwaway folder for that run, as
+`tests/run_smoke.ps1` does. For the Flatpak build, export the variable
+inside the sandbox (see Requirements).
+
 ## Requirements
 
 - Godot **4.6** (4.5+ is needed for the `Logger` API the smoke test uses).

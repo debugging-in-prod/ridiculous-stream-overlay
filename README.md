@@ -115,7 +115,8 @@ reward and the floating-menu test button, which uses PowerShell).
   throwaway data directory so your real settings and relay cursor are not
   touched.
 
-`test/` holds older manual experiments, not automated tests.
+`test/` holds manual developer scripts, not automated tests; see
+[docs/TESTING.md](docs/TESTING.md#test-and-tests).
 
 ## Code and dependencies
 
