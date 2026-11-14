@@ -27,6 +27,7 @@ extends Node
 const BOOT_TIMEOUT_S := 15.0
 const SMOKE_USER_ID := 990000001
 const SMOKE_USER := "rso_smoke_user"
+const LB_RIGIDBODY_SCRIPT := preload("res://instances/objects/lb_rigidbody.gd")
 
 
 ## Collects errors raised while a feature runs. Called from any thread.
@@ -620,12 +621,23 @@ func _test_names_toggle_off() -> void:
 	# headless dummy renderer cannot read back, so only the toggle is checked.
 	await _settle()
 	_begin()
+	# Counts name bodies only: earlier effects (e.g. the 20 s menu_laser sweep)
+	# can still destroy or spawn other bodies during the wait.
 	RS.settings.names_on_screen_enabled = false
-	var before := _bodies()
+	var before := _name_bodies()
 	RS.btn_floating_menu._on_btn_names_pressed()
 	await _physics_frames(10)
-	var ok: bool = _bodies() == before
-	_report("names_disabled_by_config", ok, "bodies %d -> %d with names_on_screen_enabled=false" % [before, _bodies()])
+	var ok: bool = _name_bodies() == before
+	_report("names_disabled_by_config", ok, "name bodies %d -> %d with names_on_screen_enabled=false" % [before, _name_bodies()])
+
+
+## Live name bodies (RSPhysicsScene.generate_text_rigidbody) in the physics scene.
+func _name_bodies() -> int:
+	var n := 0
+	for b in RS.physic_scene.bodies.get_children():
+		if b.get_script() == LB_RIGIDBODY_SCRIPT and not b.is_queued_for_deletion():
+			n += 1
+	return n
 
 
 func _test_eventsub_events_dispatch() -> void:
