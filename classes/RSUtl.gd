@@ -49,6 +49,7 @@ static func _static_init() -> void:
 
 
 static func save_to_json(file_path: String, variant: Variant) -> void:
+	make_path(file_path.get_base_dir())
 	var file := FileAccess.open(file_path, FileAccess.WRITE)
 	if file == null:
 		_log.e("Save_to_json: Failed to open %s" % [file_path])
